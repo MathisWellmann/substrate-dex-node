@@ -1,13 +1,13 @@
 [package]
-name = "node-template-runtime"
+name = "node-runtime"
 version = "4.0.0-dev"
-description = "A fresh FRAME-based Substrate runtime, ready for hacking."
-authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
-homepage = "https://substrate.io/"
+description = "A FRAME-based Substrate runtime for multi-asset DEX"
+authors = ["MathisWellmann <wellmannmathis@gmail.com>"]
+homepage = "https://github.com/MathisWellmann"
 edition = "2021"
-license = "Unlicense"
+license = "GNU GPL-v3"
 publish = false
-repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
+repository = "https://github.com/MathisWellmann/substrate-dex-final-assesment"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]

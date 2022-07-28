@@ -4,5 +4,8 @@ members = [
     "pallets/template",
     "runtime",
 ]
+
 [profile.release]
 panic = "unwind"
+lto = "fat"
+codegen-units = 1
