@@ -7,3 +7,4 @@ We all know the standard node-template README, so I'll just focus on whats new a
 
 - Bumped substrate branch from polkadot-v0.9.26 to polkadot-v0.9.27, unlike standard substrate-node-template (as of 2022-07-28)
 - Relies on pallet-assets
+- Block time of 500ms for that low latency trading goodness, may not be the best IRL though

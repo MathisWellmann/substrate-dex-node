@@ -6,6 +6,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+// mod blake3_hasher;
+
 use frame_system::EnsureRoot;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -113,9 +115,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
 /// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
 /// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
+pub const MILLISECS_PER_BLOCK: u64 = 500;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
