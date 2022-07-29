@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use frame_system::EnsureRoot;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -262,8 +263,43 @@ impl pallet_sudo::Config for Runtime {
 	type Call = Call;
 }
 
+parameter_types! {
+	pub const AssetDeposit: u128 = 1;
+	pub const AssetAccountDeposit: u128 = 1;
+	pub const MetadataDepositBase: u128 = 1;
+	pub const MetadataDepositPerByte: u128 = 1;
+	pub const ApprovalDeposit: u128 = 1;
+	/// The assets should be identified with up to 6 characters
+	/// such as BTC, ETH or XMR
+	pub const StringLimit: u8 = 6;
+}
+
+impl pallet_assets::Config for Runtime {
+	type Event = Event;
+	type Balance = Balance;
+	type AssetId = u8;
+	type Currency = Balances;
+	// We only want root to be able to forcibly create or destroy assets
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type AssetDeposit = AssetDeposit;
+	type AssetAccountDeposit = AssetAccountDeposit;
+	type MetadataDepositBase = MetadataDepositBase;
+	type MetadataDepositPerByte = MetadataDepositPerByte;
+	type ApprovalDeposit = ApprovalDeposit;
+	type StringLimit = StringLimit;
+	type Freezer = ();
+	type Extra = ();
+	type WeightInfo = ();
+}
+
+parameter_types! {
+	// 10 Basis points taker fee
+	pub TakerFee: Perbill = Perbill::from_rational(10_u32, 10_000_u32);
+}
+
 impl pallet_dex::Config for Runtime {
 	type Event = Event;
+	type TakerFee = TakerFee;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -281,6 +317,7 @@ construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
+		Assets: pallet_assets,
 		Dex: pallet_dex,
 	}
 );
