@@ -7,6 +7,10 @@ pub use pallet::*;
 use scale_info::TypeInfo;
 use sp_runtime::Perbill;
 
+use types::*;
+
+mod types;
+
 #[cfg(test)]
 mod mock;
 
@@ -15,34 +19,6 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-
-/// The asset to be exchanged against the quoted asset
-/// Defined for readability and clarity
-pub type BaseAsset<T: Config> = StringProxy<T>;
-
-/// The asset used for quoting this market
-/// Defined for readability and clarity
-pub type QuoteAsset<T: Config> = StringProxy<T>;
-
-/// The type identifying a market, which consists of Base and Quote asset
-/// e.g.: BTCUSD means BTC is the base asset and is quoted in USD
-pub type Market<T: Config> = (BaseAsset<T>, QuoteAsset<T>);
-
-/// Can either be the Base or Quote asset
-#[derive(RuntimeDebugNoBound, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub enum BaseOrQuote<T: Config> {
-	Base(BaseAsset<T>),
-	Quote(QuoteAsset<T>),
-}
-
-/// Basically valid utf-8 bytes, just like a String, but bounded in size
-/// The String limit bound is coming from pallet_assets
-pub type StringProxy<T: Config> = BoundedVec<u8, T::StringLimit>;
-
-/// Contains information about a market in addition to BASE and QUOTE assets
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen)]
-pub struct MarketInfo {}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -186,6 +162,25 @@ pub mod pallet {
 		///
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1, 1))]
 		pub fn sell(origin: OriginFor<T>, market: Market<T>, amount: T::Balance) -> DispatchResult {
+			todo!();
+			Ok(())
+		}
+
+		/// Allows the user to get a fill price estimate for a given market and desired amount
+		///
+		/// # Arguments:
+		/// origin: The obiquitous origin of a transaction
+		/// market: The market for which the price estimate is emitted
+		/// buy_or_sell: Whether the user wants a buy or sell estimate
+		/// amount: The amount dictates the slippage and price impact
+		///
+		#[pallet::weight(1_000)]
+		pub fn fill_price_estimate(
+			origin: OriginFor<T>,
+			market: Market<T>,
+			buy_or_sell: BuyOrSell,
+			amount: T::Balance,
+		) -> DispatchResult {
 			todo!();
 			Ok(())
 		}
