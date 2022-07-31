@@ -7,12 +7,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{traits::Get, BoundedVec, PalletId, RuntimeDebug, RuntimeDebugNoBound};
-use frame_system::Origin;
+use frame_support::{traits::Get, PalletId};
 pub use pallet::*;
-use scale_info::TypeInfo;
-use sp_runtime::{traits::StaticLookup, AccountId32, Perbill};
+use pallet_assets::WeightInfo;
+use sp_runtime::{traits::StaticLookup, Perbill};
 
 use sp_runtime::traits::AccountIdConversion;
 use types::*;
@@ -38,7 +36,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + pallet_assets::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-		// The taker fee a user pays for taking liquidity and doing the asset swap
+		/// The taker fee a user pays for taking liquidity and doing the asset swap
 		type TakerFee: Get<Perbill>;
 
 		/// The treasury's pallet id, used for deriving its sovereign account ID.
@@ -50,10 +48,28 @@ pub mod pallet {
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
+	/// Stores information about the markets liquidity pool
+	///
+	/// Maps Market => (BASE Balance, QUOTE Balance)
 	#[pallet::storage]
-	#[pallet::getter(fn markets)]
-	pub type Markets<T: Config> =
-		StorageMap<_, Blake2_128Concat, Market<T>, MarketInfo, OptionQuery>;
+	#[pallet::getter(fn liquidity_pool)]
+	pub type LiquidityPool<T: Config> =
+		StorageMap<_, Blake2_128Concat, Market<T>, (T::Balance, T::Balance), OptionQuery>;
+
+	/// Stores information regarding the liquidity provision of users in a given market
+	///
+	/// Maps Market and Account => (BASE Balance, QUOTE Balance)
+	#[pallet::storage]
+	#[pallet::getter(fn liq_provision_pool)]
+	pub type LiqProvisionPool<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		Market<T>,
+		Blake2_128Concat,
+		T::AccountId,
+		(T::Balance, T::Balance),
+		OptionQuery,
+	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -61,8 +77,11 @@ pub mod pallet {
 		/// A liquidity pool has been created for a trading pair
 		///
 		/// # Fields:
-		/// 0: The market identifier
-		PoolCreated(Market<T>),
+		/// 0: Who created the market
+		/// 1: The market identifier
+		/// 2: Liquidity for BASE asset
+		/// 3: Liquidity for QUOTE asset
+		PoolCreated(T::AccountId, Market<T>, T::Balance, T::Balance),
 
 		/// Emitted when liquidity has been added to a pool
 		///
@@ -113,7 +132,10 @@ pub mod pallet {
 		/// quote_asset: The QUOTE asset of the market
 		/// base_amount: Amount of BASE currency to use for bootstrapping liquidity
 		/// quote_amount: Amount of QUOTE currency to use for bootstrapping liquidity
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1, 1))]
+		///
+		/// # Weight:
+		/// Requires base weight + 3 reads and 2 writes, as well as two times the weight of transfer operation of assets pallet
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(3, 2) + <T as pallet_assets::Config>::WeightInfo::transfer())]
 		pub fn create_market_pool(
 			origin: OriginFor<T>,
 			base_asset: T::AssetId,
@@ -125,7 +147,7 @@ pub mod pallet {
 
 			// check if market pool exists already
 			let market = (base_asset, quote_asset);
-			ensure!(Markets::<T>::get(market).is_none(), Error::<T>::MarketExists);
+			ensure!(LiquidityPool::<T>::get(market).is_none(), Error::<T>::MarketExists);
 
 			// Check that balance of BASE asset of caller account is sufficient
 			let base_balance = <pallet_assets::Pallet<T>>::balance(base_asset, &who);
@@ -138,17 +160,26 @@ pub mod pallet {
 			// Transfer the assets into the liquidty pool,
 			// by using the internal Account
 			<pallet_assets::Pallet<T>>::transfer(
-				origin,
+				origin.clone(),
 				base_asset,
 				<T::Lookup as StaticLookup>::unlookup(Self::pool_account()),
 				base_amount,
 			)?;
-			// TODO: remember who depsited what
+			<pallet_assets::Pallet<T>>::transfer(
+				origin,
+				quote_asset,
+				<T::Lookup as StaticLookup>::unlookup(Self::pool_account()),
+				quote_amount,
+			)?;
 
-			Markets::<T>::insert(market, MarketInfo::default());
+			// Insert the balance information for the market
+			LiquidityPool::<T>::insert(market, (base_amount, quote_amount));
+
+			// remember who depsited what in the liquidity provision pool
+			LiqProvisionPool::<T>::insert(market, who.clone(), (base_amount, quote_amount));
 
 			// Emit the event that the pool has been created
-			Self::deposit_event(Event::PoolCreated(market));
+			Self::deposit_event(Event::PoolCreated(who, market, base_amount, quote_amount));
 
 			Ok(())
 		}
@@ -158,13 +189,15 @@ pub mod pallet {
 		///
 		/// # Arguments:
 		/// origin: The obiquitous origin of a transaction
-		/// boq: Whether the user deposits the BASE or QUOTE asset
-		/// amount: The amount to deposit
+		/// market: To which market the liquidity should be added
+		/// base_amount: The amount of BASE asset to deposit
+		/// quote_amount: The amount of QUOTE asset to deposit
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn deposit_liquidity(
 			origin: OriginFor<T>,
-			boq: BaseOrQuote,
-			amount: T::Balance,
+			market: Market<T>,
+			base_amount: T::Balance,
+			quote_amount: T::Balance,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 

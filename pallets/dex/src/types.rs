@@ -17,10 +17,6 @@ pub enum BaseOrQuote {
 	Quote,
 }
 
-/// Contains information about a market in addition to BASE and QUOTE assets
-#[derive(RuntimeDebug, Encode, Decode, TypeInfo, MaxEncodedLen, Default)]
-pub struct MarketInfo;
-
 /// Enumerates over buy and sell actions
 #[derive(RuntimeDebugNoBound, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub enum BuyOrSell {
