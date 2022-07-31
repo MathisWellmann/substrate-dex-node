@@ -4,22 +4,30 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
-	MultiSignature, Perbill,
+	traits::{BlakeTwo256, IdentityLookup},
+	BuildStorage, MultiSignature,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 pub type BlockNumber = u64;
-pub type Signature = MultiSignature;
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+pub type AccountId = u8;
 pub type Balance = u128;
 pub type Index = u64;
 pub type Hash = sp_core::H256;
+pub type AssetId = u8;
+
+pub const ALICE: AccountId = 1;
+pub const BOB: AccountId = 2;
+pub const CHARLIE: AccountId = 3;
+pub const EMPTY_ACCOUNT: AccountId = 4;
+
+pub const BTC: AssetId = 0;
+pub const XMR: AssetId = 1;
+pub const DOT: AssetId = 2;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -88,7 +96,7 @@ parameter_types! {
 impl pallet_assets::Config for Test {
 	type Event = Event;
 	type Balance = Balance;
-	type AssetId = u8;
+	type AssetId = AssetId;
 	type Currency = Balances;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type AssetDeposit = AssetDeposit;
@@ -104,7 +112,7 @@ impl pallet_assets::Config for Test {
 
 parameter_types! {
 	// 10 Basis points taker fee, which is lower vs uniswap but may attract more taker flow
-	pub TakerFee: Perbill = Perbill::from_rational(10_u32, 10_000_u32);
+	pub TakerFee: (u32, u32) = (1, 1_000);
 	// Only 8 bytes available, so t is missing at the end
 	pub DexPalletId: PalletId = PalletId(*b"dexpalle");
 }
@@ -117,5 +125,33 @@ impl crate::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	GenesisConfig {
+		balances: BalancesConfig {
+			balances: vec![
+				(ALICE, 1_000_000_000_000),
+				(BOB, 1_000_000_000_000),
+				(CHARLIE, 1_000_000_000_000),
+			],
+		},
+		assets: AssetsConfig {
+			assets: vec![(BTC, ALICE, true, 1), (XMR, ALICE, true, 1), (DOT, ALICE, true, 1)],
+			metadata: vec![],
+			accounts: vec![
+				(BTC, ALICE, 1_000_000_000),
+				(XMR, ALICE, 1_000_000_000),
+				(DOT, ALICE, 1_000_000_000),
+				(BTC, BOB, 1_000_000_000),
+				(BTC, CHARLIE, 1_000_000_000),
+			],
+		},
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(0));
+
+	ext
 }
