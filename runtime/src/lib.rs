@@ -6,10 +6,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-// mod blake3_hasher;
-
 use frame_support::PalletId;
-use frame_system::EnsureRoot;
+use frame_system::{EnsureNone, EnsureRoot};
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -51,7 +49,7 @@ pub use sp_runtime::{Perbill, Permill};
 pub use pallet_dex;
 
 /// An index to a block.
-pub type BlockNumber = u32;
+pub type BlockNumber = u64;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
@@ -64,7 +62,7 @@ pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::Account
 pub type Balance = u128;
 
 /// Index of a transaction in the chain.
-pub type Index = u32;
+pub type Index = u64;
 
 /// A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
@@ -240,9 +238,7 @@ impl pallet_balances::Config for Runtime {
 	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
-	/// The type for recording an account's balance.
 	type Balance = Balance;
-	/// The ubiquitous event type.
 	type Event = Event;
 	type DustRemoval = ();
 	type ExistentialDeposit = ConstU128<500>;

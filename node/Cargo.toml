@@ -1,6 +1,6 @@
 [package]
 name = "node"
-version = "0.1.1"
+version = "0.1.2"
 description = "A FRAME-based Substrate node for a multi-asset DEX"
 authors = ["MathisWellmann <wellmannmathis@gmail.com"]
 homepage = "https://github.com/MathisWellmann"
@@ -57,7 +57,7 @@ frame-benchmarking = { version = "4.0.0-dev", git = "https://github.com/parityte
 frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
 
 # Local Dependencies
-node-runtime = { version = "4.0.0-dev", path = "../runtime" }
+node-runtime = { version = "^1.0.0", path = "../runtime" }
 
 # CLI-specific dependencies
 try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
