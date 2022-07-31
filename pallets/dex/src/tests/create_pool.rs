@@ -1,6 +1,6 @@
 use frame_support::assert_ok;
 
-use crate::mock::*;
+use super::*;
 
 #[test]
 fn create_market_pool_failing() {

@@ -22,9 +22,6 @@ use types::*;
 mod types;
 
 #[cfg(test)]
-mod mock;
-
-#[cfg(test)]
 mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
