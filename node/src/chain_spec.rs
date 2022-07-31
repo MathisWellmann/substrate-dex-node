@@ -149,9 +149,15 @@ fn testnet_genesis(
 		},
 		sudo: SudoConfig {
 			// Assign network admin rights.
-			key: Some(root_key),
+			key: Some(root_key.clone()),
 		},
 		transaction_payment: Default::default(),
-		assets: AssetsConfig { assets: vec![], metadata: vec![], accounts: vec![] },
+
+		// Assign some initial assets at genesis
+		assets: AssetsConfig {
+			assets: vec![(0, root_key.clone(), true, 1), (1, root_key, true, 1)],
+			metadata: vec![],
+			accounts: vec![],
+		},
 	}
 }

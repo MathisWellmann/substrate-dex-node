@@ -8,6 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 // mod blake3_hasher;
 
+use frame_support::PalletId;
 use frame_system::EnsureRoot;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -293,13 +294,16 @@ impl pallet_assets::Config for Runtime {
 }
 
 parameter_types! {
-	// 10 Basis points taker fee
+	// 10 Basis points taker fee, which is lower vs uniswap but may attract more taker flow
 	pub TakerFee: Perbill = Perbill::from_rational(10_u32, 10_000_u32);
+	// Only 8 bytes available, so t is missing at the end
+	pub DexPalletId: PalletId = PalletId(*b"dexpalle");
 }
 
 impl pallet_dex::Config for Runtime {
 	type Event = Event;
 	type TakerFee = TakerFee;
+	type PalletId = DexPalletId;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

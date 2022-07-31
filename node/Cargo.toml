@@ -1,11 +1,11 @@
 [package]
 name = "node"
-version = "4.0.0-dev"
+version = "0.1.1"
 description = "A FRAME-based Substrate node for a multi-asset DEX"
 authors = ["MathisWellmann <wellmannmathis@gmail.com"]
 homepage = "https://github.com/MathisWellmann"
 edition = "2021"
-license = "GNU GPL-v3"
+license = "GNU AGPL-v3"
 publish = false
 repository = "https://github.com/MathisWellmann/substrate-dex-final-assesment/"
 build = "build.rs"
