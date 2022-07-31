@@ -1,15 +1,16 @@
 //! DEX Pallet
 //!
 //! This pallet provides functionality for an constant product market maker
-//! so x * y = 1, where x and y are the amounts of each currency
+//! Similar to Uniswap v2.
 //!
 //! TODO: more docs
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{traits::Get, PalletId};
+use frame_support::{traits::Get, transactional, PalletId};
 pub use pallet::*;
 use pallet_assets::WeightInfo;
+use sp_arithmetic::traits::CheckedAdd;
 use sp_runtime::{traits::StaticLookup, Perbill};
 
 use sp_runtime::traits::AccountIdConversion;
@@ -86,10 +87,11 @@ pub mod pallet {
 		/// Emitted when liquidity has been added to a pool
 		///
 		/// # Fields:
-		/// 0: The market identifier for which liquidity has been added
-		/// 1: Which asset has been added, either the base or quoted asset
-		/// 2: The amount which has been added
-		LiquidityAdded(Market<T>, BaseOrQuote, T::Balance),
+		/// 0: The liquidity provider account
+		/// 1: The market identifier for which liquidity has been added
+		/// 2: The BASE asset balance added
+		/// 3: The QUOT asset balance added
+		LiquidityAdded(T::AccountId, Market<T>, T::Balance, T::Balance),
 
 		/// A liquidity provider (maker) has been rewarded with some balance
 		///
@@ -118,6 +120,9 @@ pub mod pallet {
 
 		/// The user does not have enough balance
 		NotEnoughBalance,
+
+		/// Some arithmetic error occurred
+		ArithmeticError,
 	}
 
 	#[pallet::call]
@@ -136,6 +141,7 @@ pub mod pallet {
 		/// # Weight:
 		/// Requires base weight + 3 reads and 2 writes, as well as two times the weight of transfer operation of assets pallet
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(3, 2) + <T as pallet_assets::Config>::WeightInfo::transfer())]
+		#[transactional] // This Dispatchable is atomic
 		pub fn create_market_pool(
 			origin: OriginFor<T>,
 			base_asset: T::AssetId,
@@ -193,18 +199,70 @@ pub mod pallet {
 		/// base_amount: The amount of BASE asset to deposit
 		/// quote_amount: The amount of QUOTE asset to deposit
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[transactional] // This Dispatchable is atomic
 		pub fn deposit_liquidity(
 			origin: OriginFor<T>,
 			market: Market<T>,
 			base_amount: T::Balance,
 			quote_amount: T::Balance,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let who = ensure_signed(origin.clone())?;
 
-			// TODO: update storage
+			let (base_asset, quote_asset) = market;
 
-			// TODO: Emit proper event.
-			// Self::deposit_event(Event::SomethingStored(something, who));
+			// check if market pool exists
+			ensure!(LiquidityPool::<T>::get(market).is_some(), Error::<T>::MarketDoesNotExist);
+
+			// Check that balance of BASE asset of caller account is sufficient
+			let base_balance = <pallet_assets::Pallet<T>>::balance(base_asset, &who);
+			ensure!(base_balance >= base_amount, Error::<T>::NotEnoughBalance);
+
+			// Check if balance of QUOTE asset of caller account is sufficient
+			let quote_balance = <pallet_assets::Pallet<T>>::balance(quote_asset, &who);
+			ensure!(quote_balance >= quote_amount, Error::<T>::NotEnoughBalance);
+
+			// Use try_mutate in case the closure fails, e.g.: arithmetic overflow
+			LiquidityPool::<T>::try_mutate(market, |opt_balances| -> DispatchResult {
+				let (base_balance, quote_balance) = opt_balances
+					.expect("Check that the market pool exists has been done before; qed");
+
+				base_balance.checked_add(&base_amount).ok_or(Error::<T>::ArithmeticError)?;
+				quote_balance.checked_add(&quote_amount).ok_or(Error::<T>::ArithmeticError)?;
+
+				Ok(())
+			})?;
+
+			// transfer the BASE asset to pool account
+			<pallet_assets::Pallet<T>>::transfer(
+				origin.clone(),
+				base_asset,
+				<T::Lookup as StaticLookup>::unlookup(Self::pool_account()),
+				base_amount,
+			)?;
+			// transfer the QUOTE asset to pool account
+			<pallet_assets::Pallet<T>>::transfer(
+				origin,
+				quote_asset,
+				<T::Lookup as StaticLookup>::unlookup(Self::pool_account()),
+				quote_amount,
+			)?;
+
+			// Keep track of liquidity providers
+			LiqProvisionPool::<T>::try_mutate(
+				market,
+				who.clone(),
+				|opt_balances| -> DispatchResult {
+					let (base_balance, quote_balance) = opt_balances
+						.expect("The existance of the balances here has been checked before; qed");
+
+					base_balance.checked_add(&base_amount).ok_or(Error::<T>::ArithmeticError)?;
+					quote_balance.checked_add(&quote_amount).ok_or(Error::<T>::ArithmeticError)?;
+
+					Ok(())
+				},
+			)?;
+
+			Self::deposit_event(Event::LiquidityAdded(who, market, base_amount, quote_amount));
 
 			Ok(())
 		}
