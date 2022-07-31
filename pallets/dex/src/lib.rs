@@ -322,7 +322,7 @@ pub mod pallet {
 			market: Market<T>,
 			quote_amount: T::Balance,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			let who = ensure_signed(origin.clone())?;
 
 			// check if market pool exists
 			let (pool_base_balance, pool_quote_balance) =
@@ -342,7 +342,14 @@ pub mod pallet {
 				quote_amount,
 			)?;
 
-			// TODO: storage updates
+			let pool_account = <T::Lookup as StaticLookup>::unlookup(Self::pool_account());
+			<pallet_assets::Pallet<T>>::transfer(origin, quote_asset, pool_account, quote_amount)?;
+			<pallet_assets::Pallet<T>>::transfer(
+				frame_system::RawOrigin::Root.into(),
+				base_asset,
+				<T::Lookup as StaticLookup>::unlookup(who.clone()),
+				receive_amount,
+			)?;
 
 			Self::deposit_event(Event::Bought(who, market, quote_amount, receive_amount));
 
