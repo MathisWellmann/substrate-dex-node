@@ -324,7 +324,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 
-			// check if market pool exists
+			// get balance of pool, if it exists
 			let (pool_base_balance, pool_quote_balance) =
 				LiquidityPool::<T>::get(market).ok_or(Error::<T>::MarketDoesNotExist)?;
 
@@ -343,13 +343,18 @@ pub mod pallet {
 			)?;
 
 			let pool_account = <T::Lookup as StaticLookup>::unlookup(Self::pool_account());
+
+			// Transfer the QUOTE asset into the pool
 			<pallet_assets::Pallet<T>>::transfer(origin, quote_asset, pool_account, quote_amount)?;
+			// And get the BASE asset out of the pool
 			<pallet_assets::Pallet<T>>::transfer(
 				frame_system::RawOrigin::Root.into(),
 				base_asset,
 				<T::Lookup as StaticLookup>::unlookup(who.clone()),
 				receive_amount,
 			)?;
+
+			// TODO: collect fees somewhere
 
 			Self::deposit_event(Event::Bought(who, market, quote_amount, receive_amount));
 
@@ -361,11 +366,49 @@ pub mod pallet {
 		/// # Arguments:
 		/// origin: The obiquitous origin of a transaction
 		/// market: The market in which the user wants to trade
-		/// amount: The amount of BASE asset the user wants to sell
+		/// base_amount: The amount of BASE asset the user wants to sell
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1, 1))]
 		#[transactional] // This Dispatchable is atomic
-		pub fn sell(origin: OriginFor<T>, market: Market<T>, amount: T::Balance) -> DispatchResult {
-			todo!();
+		pub fn sell(
+			origin: OriginFor<T>,
+			market: Market<T>,
+			base_amount: T::Balance,
+		) -> DispatchResult {
+			let who = ensure_signed(origin.clone())?;
+
+			// get balance of pool, if it exists
+			let (pool_base_balance, pool_quote_balance) =
+				LiquidityPool::<T>::get(market).ok_or(Error::<T>::MarketDoesNotExist)?;
+
+			let (base_asset, quote_asset) = market;
+
+			// Check that user has enough BASE asset to sell it
+			let base_balance = <pallet_assets::Pallet<T>>::balance(base_asset, &who);
+			ensure!(base_balance >= base_amount, Error::<T>::NotEnoughBalance);
+
+			let receive_amount = Self::get_received_amount(
+				pool_base_balance,
+				pool_quote_balance,
+				BuyOrSell::Sell,
+				base_amount,
+			)?;
+
+			let pool_account = <T::Lookup as StaticLookup>::unlookup(Self::pool_account());
+
+			// Transfer the BASE asset into the pool
+			<pallet_assets::Pallet<T>>::transfer(origin, base_asset, pool_account, base_amount)?;
+			// And get the QUOTE asset out of the pool
+			<pallet_assets::Pallet<T>>::transfer(
+				frame_system::RawOrigin::Root.into(),
+				quote_asset,
+				<T::Lookup as StaticLookup>::unlookup(who.clone()),
+				receive_amount,
+			)?;
+
+			// TODO: collect fees somewhere
+
+			Self::deposit_event(Event::Sold(who, market, base_amount, receive_amount));
+
 			Ok(())
 		}
 
