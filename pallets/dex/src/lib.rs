@@ -10,8 +10,11 @@
 use frame_support::{traits::Get, transactional, PalletId};
 pub use pallet::*;
 use pallet_assets::WeightInfo;
-use sp_arithmetic::traits::CheckedAdd;
-use sp_runtime::{traits::StaticLookup, Perbill};
+use sp_arithmetic::traits::*;
+use sp_runtime::{
+	traits::{Saturating, StaticLookup, Zero},
+	DispatchError,
+};
 
 use sp_runtime::traits::AccountIdConversion;
 use types::*;
@@ -38,7 +41,10 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		/// The taker fee a user pays for taking liquidity and doing the asset swap
-		type TakerFee: Get<Perbill>;
+		/// First item is the numerator, second one the denominator
+		/// fee_rate = numerator / denominator.
+		#[pallet::constant]
+		type TakerFee: Get<(u32, u32)>;
 
 		/// The treasury's pallet id, used for deriving its sovereign account ID.
 		#[pallet::constant]
@@ -58,6 +64,7 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, Market<T>, (T::Balance, T::Balance), OptionQuery>;
 
 	/// Stores information regarding the liquidity provision of users in a given market
+	/// Used for rewarding liquidity providers from the collected taker fees.
 	///
 	/// Maps Market and Account => (BASE Balance, QUOTE Balance)
 	#[pallet::storage]
@@ -93,6 +100,15 @@ pub mod pallet {
 		/// 3: The QUOT asset balance added
 		LiquidityAdded(T::AccountId, Market<T>, T::Balance, T::Balance),
 
+		/// Emitted when a user removes liquidity from a pool
+		///
+		/// # Fields:
+		/// 0: The account withdrawing the liquidity
+		/// 1: The market it's been withdrawn from
+		/// 2: The amount of BASE asset withdrawn
+		/// 3: The amount of QUOTE asset withdrawn
+		LiquidtyWithdrawn(T::AccountId, Market<T>, T::Balance, T::Balance),
+
 		/// A liquidity provider (maker) has been rewarded with some balance
 		///
 		/// # Fields:
@@ -100,14 +116,23 @@ pub mod pallet {
 		/// 1: The amount that has been payed out
 		LiquidityProviderRewarded(T::AccountId, T::Balance),
 
-		/// A liquidity taker has swapped an asset for another
+		/// A user bought the BASE asset
 		///
 		/// # Fields:
-		/// 0: The taker account
-		/// 1: The market the swap happened on
-		/// 2: The asset type that has been swapped out, QUOTE if a sell occurred, BASE if a buy
-		/// occurred 3: The amount that was used in the swap
-		AssetSwapped(T::AccountId, Market<T>, BaseOrQuote, T::Balance),
+		/// 0: The account which bought
+		/// 1: The market in which it was bough
+		/// 2: The amount of QUOTE asset that was spent
+		/// 3: The amount of BASE asset received
+		Bought(T::AccountId, Market<T>, T::Balance, T::Balance),
+
+		/// A user sold the BASE asset
+		///
+		/// # Fields:
+		/// 0: The account which sold
+		/// 1: The market in which it was sold
+		/// 2: The amount of BASE asset that was sold
+		/// 3: The amount of QUOTE asset received
+		Sold(T::AccountId, Market<T>, T::Balance, T::Balance),
 	}
 
 	#[pallet::error]
@@ -274,6 +299,7 @@ pub mod pallet {
 		/// boq: Whether the user deposits the BASE or QUOTE asset
 		/// amount: The amount to deposit
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1, 1))]
+		#[transactional] // This Dispatchable is atomic
 		pub fn withdraw_liquidity(
 			origin: OriginFor<T>,
 			bog: BaseOrQuote,
@@ -288,10 +314,38 @@ pub mod pallet {
 		/// # Arguments
 		/// origin: The obiquitous origin of a transaction
 		/// market: The market in which the user wants to trade
-		/// amount: The amount of the QUOTE asset the user is willing to spend
+		/// quote_amount: The amount of the QUOTE asset the user is willing to spend
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1, 1))]
-		pub fn buy(origin: OriginFor<T>, market: Market<T>, amount: T::Balance) -> DispatchResult {
-			todo!();
+		#[transactional] // This Dispatchable is atomic
+		pub fn buy(
+			origin: OriginFor<T>,
+			market: Market<T>,
+			quote_amount: T::Balance,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			// check if market pool exists
+			let (pool_base_balance, pool_quote_balance) =
+				LiquidityPool::<T>::get(market).ok_or(Error::<T>::MarketDoesNotExist)?;
+
+			let (base_asset, quote_asset) = market;
+
+			// Check that balance of QUOTE asset of caller account is sufficient
+			let quote_balance = <pallet_assets::Pallet<T>>::balance(quote_asset, &who);
+			ensure!(quote_balance >= quote_amount, Error::<T>::NotEnoughBalance);
+
+			// get the amount to receive
+			let receive_amount = Self::get_received_amount(
+				pool_base_balance,
+				pool_quote_balance,
+				BuyOrSell::Buy,
+				quote_amount,
+			)?;
+
+			// TODO: storage updates
+
+			Self::deposit_event(Event::Bought(who, market, quote_amount, receive_amount));
+
 			Ok(())
 		}
 
@@ -302,6 +356,7 @@ pub mod pallet {
 		/// market: The market in which the user wants to trade
 		/// amount: The amount of BASE asset the user wants to sell
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1, 1))]
+		#[transactional] // This Dispatchable is atomic
 		pub fn sell(origin: OriginFor<T>, market: Market<T>, amount: T::Balance) -> DispatchResult {
 			todo!();
 			Ok(())
@@ -329,7 +384,47 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	/// The internal account of the pool derived from this pallets id
+	#[inline(always)]
 	pub fn pool_account() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
+	}
+
+	/// Calculates the received amount when buying or selling a given amount
+	///
+	/// # Arguments:
+	/// pool_base_balance: The amount of the BASE asset in the pool
+	/// pool_quote_balance: The amount of the QUOTE asset in the pool
+	/// buy_or_sell: Whether the operation is buying or selling
+	/// amount: The amount to spend
+	///
+	/// # Returns:
+	/// If Ok, The balance that the user will receive from this exchange
+	/// Else some arithmetic error
+	pub fn get_received_amount(
+		pool_base_balance: T::Balance,
+		pool_quote_balance: T::Balance,
+		buy_or_sell: BuyOrSell,
+		amount: T::Balance,
+	) -> Result<T::Balance, DispatchError> {
+		if amount.is_zero() {
+			Ok(Zero::zero())
+		} else {
+			let (fee_numerator, fee_denominator) = T::TakerFee::get();
+
+			// TODO: match on buy_or_sell
+
+			let supply_with_fee = amount
+				.saturating_mul(T::Balance::from(fee_denominator.saturating_sub(fee_numerator)));
+			let numerator = supply_with_fee.saturating_mul(pool_base_balance);
+			let denom = pool_quote_balance
+				.saturating_mul(T::Balance::from(fee_denominator))
+				.saturating_add(supply_with_fee);
+
+			let receive_amount = numerator
+				.checked_div(&T::Balance::from(denom))
+				.ok_or(Error::<T>::ArithmeticError)?;
+
+			Ok(receive_amount)
+		}
 	}
 }

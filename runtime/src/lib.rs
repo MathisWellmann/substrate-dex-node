@@ -291,7 +291,7 @@ impl pallet_assets::Config for Runtime {
 
 parameter_types! {
 	// 10 Basis points taker fee, which is lower vs uniswap but may attract more taker flow
-	pub TakerFee: Perbill = Perbill::from_rational(10_u32, 10_000_u32);
+	pub TakerFee: (u32, u32) = (1, 1_000);
 	// Only 8 bytes available, so t is missing at the end
 	pub DexPalletId: PalletId = PalletId(*b"dexpalle");
 }
