@@ -53,7 +53,7 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 
 		/// The type that enables currency transfers
-		type Currencies: Transfer<Self::AccountId>;
+		type Currencies: Transfer<Self::AccountId, Balance = u128, AssetId = u8>;
 	}
 
 	#[pallet::pallet]
@@ -194,7 +194,7 @@ pub mod pallet {
 			ensure!(quote_balance >= quote_amount, Error::<T>::NotEnoughBalance);
 
 			let pool_account = Self::pool_account();
-			
+
 			// Transfer the BASE currency into the pool
 			<T as Config>::Currencies::transfer(
 				base_asset,
@@ -260,8 +260,8 @@ pub mod pallet {
 				let (base_balance, quote_balance) = opt_balances
 					.expect("Check that the market pool exists has been done before; qed");
 
-				base_balance.checked_add(&base_amount).ok_or(Error::<T>::ArithmeticError)?;
-				quote_balance.checked_add(&quote_amount).ok_or(Error::<T>::ArithmeticError)?;
+				base_balance.checked_add(base_amount).ok_or(Error::<T>::ArithmeticError)?;
+				quote_balance.checked_add(quote_amount).ok_or(Error::<T>::ArithmeticError)?;
 
 				Ok(())
 			})?;
@@ -282,7 +282,7 @@ pub mod pallet {
 				&who,
 				&pool_account,
 				quote_amount,
-				true
+				true,
 			)?;
 
 			// Keep track of liquidity providers
@@ -293,8 +293,8 @@ pub mod pallet {
 					let (base_balance, quote_balance) = opt_balances
 						.expect("The existance of the balances here has been checked before; qed");
 
-					base_balance.checked_add(&base_amount).ok_or(Error::<T>::ArithmeticError)?;
-					quote_balance.checked_add(&quote_amount).ok_or(Error::<T>::ArithmeticError)?;
+					base_balance.checked_add(base_amount).ok_or(Error::<T>::ArithmeticError)?;
+					quote_balance.checked_add(quote_amount).ok_or(Error::<T>::ArithmeticError)?;
 
 					Ok(())
 				},
@@ -490,15 +490,16 @@ impl<T: Config> Pallet<T> {
 
 			// TODO: match on buy_or_sell
 
-			let supply_with_fee = amount
-				.saturating_mul(BalanceOf::<T>::from(fee_denominator.saturating_sub(fee_numerator)));
+			let supply_with_fee = amount.saturating_mul(BalanceOf::<T>::from(
+				fee_denominator.saturating_sub(fee_numerator),
+			));
 			let numerator = supply_with_fee.saturating_mul(pool_base_balance);
 			let denom = pool_quote_balance
 				.saturating_mul(BalanceOf::<T>::from(fee_denominator))
 				.saturating_add(supply_with_fee);
 
 			let receive_amount = numerator
-				.checked_div(&BalanceOf::<T>::from(denom))
+				.checked_div(BalanceOf::<T>::from(denom))
 				.ok_or(Error::<T>::ArithmeticError)?;
 
 			Ok(receive_amount)
