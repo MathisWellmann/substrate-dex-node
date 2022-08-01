@@ -15,3 +15,7 @@ We all know the standard node-template README, so I'll just focus on whats new a
 - Test all Dispatchables
 - Create trading agent for simulation purposes
 - Inlcude checks for Event in tests as well
+- Use cargo clippy
+- Use cargo fmt
+- Make sure everything is documented, use the macro to deny undocumented items
+- Impl Dispatchable that returns the current price

@@ -36,8 +36,10 @@ fn buy() {
 		assert_ok!(crate::Pallet::<Test>::buy(origin, market, 10));
 
 		// Check the storage changes
-		assert_eq!(crate::Pallet::<Test>::balance(USD, &ALICE), 90);
-		assert_eq!(crate::Pallet::<Test>::balance(BTC, &ALICE), 110);
+		// Notice that both the liquidity deposit and the payed amount are gone from USD balance
+		assert_eq!(crate::Pallet::<Test>::balance(USD, &ALICE), 890);
+		// Notice how 100 BTC balance also went into the liquidity pool
+		assert_eq!(crate::Pallet::<Test>::balance(BTC, &ALICE), 910);
 	})
 }
 
