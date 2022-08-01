@@ -1,6 +1,6 @@
 [package]
 name = "pallet-dex"
-version = "0.1.4"
+version = "0.1.5"
 description = "FRAME pallet for DEX functionality"
 authors = ["MathisWellmann <wellmannmathis@gmail.com>"]
 homepage = "https://github.com/MathisWellmann"

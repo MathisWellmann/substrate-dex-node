@@ -6,24 +6,30 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use sp_runtime::{
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, MultiSignature,
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
+	AccountId32, BuildStorage, MultiSignature,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 pub type BlockNumber = u64;
-pub type AccountId = u8;
+pub type Signature = MultiSignature;
+// pub type AccountId = u8;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 pub type Balance = u128;
 pub type Index = u64;
 pub type Hash = sp_core::H256;
 pub type AssetId = u8;
 
-pub const ALICE: AccountId = 1;
-pub const BOB: AccountId = 2;
-pub const CHARLIE: AccountId = 3;
-pub const EMPTY_ACCOUNT: AccountId = 4;
+pub const ALICE: AccountId = AccountId32::new([0; 32]);
+pub const BOB: AccountId = AccountId32::new([1; 32]);
+pub const CHARLIE: AccountId = AccountId32::new([2; 32]);
+pub const EMPTY_ACCOUNT: AccountId = AccountId32::new([3; 32]);
+pub const DEX_PALLET_ACCOUNT: AccountId = AccountId32::new([
+	109, 111, 100, 108, 100, 101, 120, 112, 97, 108, 108, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+]);
 
 pub const BTC: AssetId = 0;
 pub const XMR: AssetId = 1;
@@ -135,7 +141,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			],
 		},
 		assets: AssetsConfig {
-			assets: vec![(BTC, ALICE, true, 1), (XMR, ALICE, true, 1), (DOT, ALICE, true, 1)],
+			assets: vec![
+				(BTC, DEX_PALLET_ACCOUNT, true, 1),
+				(XMR, DEX_PALLET_ACCOUNT, true, 1),
+				(DOT, DEX_PALLET_ACCOUNT, true, 1),
+			],
 			metadata: vec![],
 			accounts: vec![
 				(BTC, ALICE, 1_000_000_000),
@@ -151,7 +161,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(0));
+	// Set the block number to 1 as genesis Events are not captured
+	ext.execute_with(|| System::set_block_number(1));
 
 	ext
 }

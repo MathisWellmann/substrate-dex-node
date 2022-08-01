@@ -14,3 +14,4 @@ We all know the standard node-template README, so I'll just focus on whats new a
 - Pay out liquidity provider rewards
 - Test all Dispatchables
 - Create trading agent for simulation purposes
+- Inlcude checks for Event in tests as well

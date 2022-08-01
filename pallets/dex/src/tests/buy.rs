@@ -36,3 +36,12 @@ fn buy() {
 		assert_ok!(crate::Pallet::<Test>::buy(origin, market, 10));
 	})
 }
+
+#[test]
+fn pallet_account() {
+	new_test_ext().execute_with(|| {
+		let pool_account = crate::Pallet::<Test>::pool_account();
+		let bytes: &[u8; 32] = pool_account.as_ref();
+		println!("pool_account: {:?}", bytes);
+	})
+}

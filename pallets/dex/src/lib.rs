@@ -342,11 +342,17 @@ pub mod pallet {
 			let pool_account = <T::Lookup as StaticLookup>::unlookup(Self::pool_account());
 
 			// Transfer the QUOTE asset into the pool
-			<pallet_assets::Pallet<T>>::transfer(origin, quote_asset, pool_account, quote_amount)?;
-			// And get the BASE asset out of the pool
 			<pallet_assets::Pallet<T>>::transfer(
+				origin,
+				quote_asset,
+				pool_account.clone(),
+				quote_amount,
+			)?;
+			// And get the BASE asset out of the pool
+			<pallet_assets::Pallet<T>>::force_transfer(
 				frame_system::RawOrigin::Root.into(),
 				base_asset,
+				pool_account,
 				<T::Lookup as StaticLookup>::unlookup(who.clone()),
 				receive_amount,
 			)?;
