@@ -127,6 +127,7 @@ impl crate::Config for Test {
 	type Event = Event;
 	type TakerFee = TakerFee;
 	type PalletId = DexPalletId;
+	type Currencies = Assets;
 }
 
 // Build genesis storage according to the mock runtime.
