@@ -1,4 +1,4 @@
-use frame_support::assert_ok;
+use frame_support::{assert_noop, assert_ok};
 
 use super::*;
 
@@ -7,9 +7,10 @@ fn buy_no_pool() {
 	new_test_ext().execute_with(|| {
 		let origin = Origin::signed(ALICE);
 		let market = (BTC, XMR);
-		let ret = crate::Pallet::<Test>::buy(origin, market, 100);
-		// This should error as there is no liquidity pool created yet
-		assert!(ret.is_err());
+		assert_noop!(
+			crate::Pallet::<Test>::buy(origin, market, 100),
+			crate::Error::<Test>::MarketDoesNotExist
+		);
 	})
 }
 
@@ -21,8 +22,10 @@ fn buy_not_enough_balance() {
 
 		let market = (BTC, XMR);
 		// This should obviously fail as ALICE does not have enough balance
-		let ret = crate::Pallet::<Test>::buy(origin, market, u128::MAX);
-		assert!(ret.is_err());
+		assert_noop!(
+			crate::Pallet::<Test>::buy(origin, market, u128::MAX),
+			crate::Error::<Test>::NotEnoughBalance
+		);
 	})
 }
 
