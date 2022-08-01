@@ -7,12 +7,17 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{traits::Get, transactional, PalletId};
+use frame_support::{
+	traits::{
+		tokens::fungibles::{Inspect, Transfer},
+		Get,
+	},
+	transactional, PalletId,
+};
 pub use pallet::*;
-use pallet_assets::WeightInfo;
 use sp_arithmetic::traits::*;
 use sp_runtime::{
-	traits::{Saturating, StaticLookup, Zero},
+	traits::{Saturating, Zero},
 	DispatchError,
 };
 
@@ -34,7 +39,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_assets::Config {
+	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		/// The taker fee a user pays for taking liquidity and doing the asset swap
@@ -46,6 +51,9 @@ pub mod pallet {
 		/// The treasury's pallet id, used for deriving its sovereign account ID.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+
+		/// The type that enables currency transfers
+		type Currencies: Transfer<Self::AccountId>;
 	}
 
 	#[pallet::pallet]
@@ -58,7 +66,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn liquidity_pool)]
 	pub type LiquidityPool<T: Config> =
-		StorageMap<_, Blake2_128Concat, Market<T>, (T::Balance, T::Balance), OptionQuery>;
+		StorageMap<_, Blake2_128Concat, Market<T>, (BalanceOf<T>, BalanceOf<T>), OptionQuery>;
 
 	/// Stores information regarding the liquidity provision of users in a given market
 	/// Used for rewarding liquidity providers from the collected taker fees.
@@ -72,7 +80,7 @@ pub mod pallet {
 		Market<T>,
 		Blake2_128Concat,
 		T::AccountId,
-		(T::Balance, T::Balance),
+		(BalanceOf<T>, BalanceOf<T>),
 		OptionQuery,
 	>;
 
@@ -86,7 +94,7 @@ pub mod pallet {
 		/// 1: The market identifier
 		/// 2: Liquidity for BASE asset
 		/// 3: Liquidity for QUOTE asset
-		PoolCreated(T::AccountId, Market<T>, T::Balance, T::Balance),
+		PoolCreated(T::AccountId, Market<T>, BalanceOf<T>, BalanceOf<T>),
 
 		/// Emitted when liquidity has been added to a pool
 		///
@@ -95,7 +103,7 @@ pub mod pallet {
 		/// 1: The market identifier for which liquidity has been added
 		/// 2: The BASE asset balance added
 		/// 3: The QUOT asset balance added
-		LiquidityAdded(T::AccountId, Market<T>, T::Balance, T::Balance),
+		LiquidityAdded(T::AccountId, Market<T>, BalanceOf<T>, BalanceOf<T>),
 
 		/// Emitted when a user removes liquidity from a pool
 		///
@@ -104,14 +112,14 @@ pub mod pallet {
 		/// 1: The market it's been withdrawn from
 		/// 2: The amount of BASE asset withdrawn
 		/// 3: The amount of QUOTE asset withdrawn
-		LiquidtyWithdrawn(T::AccountId, Market<T>, T::Balance, T::Balance),
+		LiquidtyWithdrawn(T::AccountId, Market<T>, BalanceOf<T>, BalanceOf<T>),
 
 		/// A liquidity provider (maker) has been rewarded with some balance
 		///
 		/// # Fields:
 		/// 0: The account which received a payout
 		/// 1: The amount that has been payed out
-		LiquidityProviderRewarded(T::AccountId, T::Balance),
+		LiquidityProviderRewarded(T::AccountId, BalanceOf<T>),
 
 		/// A user bought the BASE asset
 		///
@@ -120,7 +128,7 @@ pub mod pallet {
 		/// 1: The market in which it was bough
 		/// 2: The amount of QUOTE asset that was spent
 		/// 3: The amount of BASE asset received
-		Bought(T::AccountId, Market<T>, T::Balance, T::Balance),
+		Bought(T::AccountId, Market<T>, BalanceOf<T>, BalanceOf<T>),
 
 		/// A user sold the BASE asset
 		///
@@ -129,7 +137,7 @@ pub mod pallet {
 		/// 1: The market in which it was sold
 		/// 2: The amount of BASE asset that was sold
 		/// 3: The amount of QUOTE asset received
-		Sold(T::AccountId, Market<T>, T::Balance, T::Balance),
+		Sold(T::AccountId, Market<T>, BalanceOf<T>, BalanceOf<T>),
 	}
 
 	#[pallet::error]
@@ -161,15 +169,15 @@ pub mod pallet {
 		/// quote_amount: Amount of QUOTE currency to use for bootstrapping liquidity
 		///
 		/// # Weight:
-		/// Requires base weight + 3 reads and 2 writes, as well as two times the weight of transfer operation of assets pallet
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(3, 2) + <T as pallet_assets::Config>::WeightInfo::transfer())]
+		/// Requires base weight + 3 reads and 2 writes
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(3, 2))]
 		#[transactional] // This Dispatchable is atomic
 		pub fn create_market_pool(
 			origin: OriginFor<T>,
-			base_asset: T::AssetId,
-			quote_asset: T::AssetId,
-			base_amount: T::Balance,
-			quote_amount: T::Balance,
+			base_asset: AssetIdOf<T>,
+			quote_asset: AssetIdOf<T>,
+			base_amount: BalanceOf<T>,
+			quote_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 
@@ -178,26 +186,30 @@ pub mod pallet {
 			ensure!(LiquidityPool::<T>::get(market).is_none(), Error::<T>::MarketExists);
 
 			// Check that balance of BASE asset of caller account is sufficient
-			let base_balance = <pallet_assets::Pallet<T>>::balance(base_asset, &who);
+			let base_balance = Self::balance(base_asset, &who);
 			ensure!(base_balance >= base_amount, Error::<T>::NotEnoughBalance);
 
 			// Check if balance of QUOTE asset of caller account is sufficient
-			let quote_balance = <pallet_assets::Pallet<T>>::balance(quote_asset, &who);
+			let quote_balance = Self::balance(quote_asset, &who);
 			ensure!(quote_balance >= quote_amount, Error::<T>::NotEnoughBalance);
 
-			// Transfer the assets into the liquidty pool,
-			// by using the internal Account
-			<pallet_assets::Pallet<T>>::transfer(
-				origin.clone(),
+			let pool_account = Self::pool_account();
+			
+			// Transfer the BASE currency into the pool
+			<T as Config>::Currencies::transfer(
 				base_asset,
-				<T::Lookup as StaticLookup>::unlookup(Self::pool_account()),
+				&who,
+				&pool_account,
 				base_amount,
+				true,
 			)?;
-			<pallet_assets::Pallet<T>>::transfer(
-				origin,
+			// Transfer the QUOTE currency into the pool
+			<T as Config>::Currencies::transfer(
 				quote_asset,
-				<T::Lookup as StaticLookup>::unlookup(Self::pool_account()),
+				&who,
+				&pool_account,
 				quote_amount,
+				true,
 			)?;
 
 			// Insert the balance information for the market
@@ -225,8 +237,8 @@ pub mod pallet {
 		pub fn deposit_liquidity(
 			origin: OriginFor<T>,
 			market: Market<T>,
-			base_amount: T::Balance,
-			quote_amount: T::Balance,
+			base_amount: BalanceOf<T>,
+			quote_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 
@@ -236,11 +248,11 @@ pub mod pallet {
 			ensure!(LiquidityPool::<T>::get(market).is_some(), Error::<T>::MarketDoesNotExist);
 
 			// Check that balance of BASE asset of caller account is sufficient
-			let base_balance = <pallet_assets::Pallet<T>>::balance(base_asset, &who);
+			let base_balance = Self::balance(base_asset, &who);
 			ensure!(base_balance >= base_amount, Error::<T>::NotEnoughBalance);
 
 			// Check if balance of QUOTE asset of caller account is sufficient
-			let quote_balance = <pallet_assets::Pallet<T>>::balance(quote_asset, &who);
+			let quote_balance = Self::balance(quote_asset, &who);
 			ensure!(quote_balance >= quote_amount, Error::<T>::NotEnoughBalance);
 
 			// Use try_mutate in case the closure fails, e.g.: arithmetic overflow
@@ -254,19 +266,23 @@ pub mod pallet {
 				Ok(())
 			})?;
 
-			// transfer the BASE asset to pool account
-			<pallet_assets::Pallet<T>>::transfer(
-				origin.clone(),
+			let pool_account = Self::pool_account();
+
+			// transfer the BASE currency to pool account
+			<T as Config>::Currencies::transfer(
 				base_asset,
-				<T::Lookup as StaticLookup>::unlookup(Self::pool_account()),
+				&who,
+				&pool_account,
 				base_amount,
+				true,
 			)?;
-			// transfer the QUOTE asset to pool account
-			<pallet_assets::Pallet<T>>::transfer(
-				origin,
+			// transfer the QUOTE currency to pool account
+			<T as Config>::Currencies::transfer(
 				quote_asset,
-				<T::Lookup as StaticLookup>::unlookup(Self::pool_account()),
+				&who,
+				&pool_account,
 				quote_amount,
+				true
 			)?;
 
 			// Keep track of liquidity providers
@@ -300,7 +316,7 @@ pub mod pallet {
 		pub fn withdraw_liquidity(
 			origin: OriginFor<T>,
 			bog: BaseOrQuote,
-			amount: T::Balance,
+			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			todo!();
 			Ok(())
@@ -317,7 +333,7 @@ pub mod pallet {
 		pub fn buy(
 			origin: OriginFor<T>,
 			market: Market<T>,
-			quote_amount: T::Balance,
+			quote_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 
@@ -328,7 +344,7 @@ pub mod pallet {
 			let (base_asset, quote_asset) = market;
 
 			// Check that balance of QUOTE asset of caller account is sufficient
-			let quote_balance = <pallet_assets::Pallet<T>>::balance(quote_asset, &who);
+			let quote_balance = Self::balance(quote_asset, &who);
 			ensure!(quote_balance >= quote_amount, Error::<T>::NotEnoughBalance);
 
 			// get the amount to receive
@@ -339,22 +355,23 @@ pub mod pallet {
 				quote_amount,
 			)?;
 
-			let pool_account = <T::Lookup as StaticLookup>::unlookup(Self::pool_account());
+			let pool_account = Self::pool_account();
 
 			// Transfer the QUOTE asset into the pool
-			<pallet_assets::Pallet<T>>::transfer(
-				origin,
+			<T as Config>::Currencies::transfer(
 				quote_asset,
-				pool_account.clone(),
+				&who,
+				&pool_account,
 				quote_amount,
+				true,
 			)?;
 			// And get the BASE asset out of the pool
-			<pallet_assets::Pallet<T>>::force_transfer(
-				frame_system::RawOrigin::Root.into(),
+			<T as Config>::Currencies::transfer(
 				base_asset,
-				pool_account,
-				<T::Lookup as StaticLookup>::unlookup(who.clone()),
+				&pool_account,
+				&who,
 				receive_amount,
+				true,
 			)?;
 
 			// TODO: collect fees somewhere
@@ -375,7 +392,7 @@ pub mod pallet {
 		pub fn sell(
 			origin: OriginFor<T>,
 			market: Market<T>,
-			base_amount: T::Balance,
+			base_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 
@@ -386,7 +403,7 @@ pub mod pallet {
 			let (base_asset, quote_asset) = market;
 
 			// Check that user has enough BASE asset to sell it
-			let base_balance = <pallet_assets::Pallet<T>>::balance(base_asset, &who);
+			let base_balance = Self::balance(base_asset, &who);
 			ensure!(base_balance >= base_amount, Error::<T>::NotEnoughBalance);
 
 			let receive_amount = Self::get_received_amount(
@@ -396,16 +413,23 @@ pub mod pallet {
 				base_amount,
 			)?;
 
-			let pool_account = <T::Lookup as StaticLookup>::unlookup(Self::pool_account());
+			let pool_account = Self::pool_account();
 
 			// Transfer the BASE asset into the pool
-			<pallet_assets::Pallet<T>>::transfer(origin, base_asset, pool_account, base_amount)?;
+			<T as Config>::Currencies::transfer(
+				base_asset,
+				&who,
+				&pool_account,
+				base_amount,
+				true,
+			)?;
 			// And get the QUOTE asset out of the pool
-			<pallet_assets::Pallet<T>>::transfer(
-				frame_system::RawOrigin::Root.into(),
+			<T as Config>::Currencies::transfer(
 				quote_asset,
-				<T::Lookup as StaticLookup>::unlookup(who.clone()),
+				&pool_account,
+				&who,
 				receive_amount,
+				true,
 			)?;
 
 			// TODO: collect fees somewhere
@@ -427,7 +451,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			market: Market<T>,
 			buy_or_sell: BuyOrSell,
-			amount: T::Balance,
+			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			todo!();
 			Ok(())
@@ -454,11 +478,11 @@ impl<T: Config> Pallet<T> {
 	/// If Ok, The balance that the user will receive from this exchange
 	/// Else some arithmetic error
 	pub fn get_received_amount(
-		pool_base_balance: T::Balance,
-		pool_quote_balance: T::Balance,
+		pool_base_balance: BalanceOf<T>,
+		pool_quote_balance: BalanceOf<T>,
 		buy_or_sell: BuyOrSell,
-		amount: T::Balance,
-	) -> Result<T::Balance, DispatchError> {
+		amount: BalanceOf<T>,
+	) -> Result<BalanceOf<T>, DispatchError> {
 		if amount.is_zero() {
 			Ok(Zero::zero())
 		} else {
@@ -467,17 +491,31 @@ impl<T: Config> Pallet<T> {
 			// TODO: match on buy_or_sell
 
 			let supply_with_fee = amount
-				.saturating_mul(T::Balance::from(fee_denominator.saturating_sub(fee_numerator)));
+				.saturating_mul(BalanceOf::<T>::from(fee_denominator.saturating_sub(fee_numerator)));
 			let numerator = supply_with_fee.saturating_mul(pool_base_balance);
 			let denom = pool_quote_balance
-				.saturating_mul(T::Balance::from(fee_denominator))
+				.saturating_mul(BalanceOf::<T>::from(fee_denominator))
 				.saturating_add(supply_with_fee);
 
 			let receive_amount = numerator
-				.checked_div(&T::Balance::from(denom))
+				.checked_div(&BalanceOf::<T>::from(denom))
 				.ok_or(Error::<T>::ArithmeticError)?;
 
 			Ok(receive_amount)
 		}
+	}
+
+	/// Helper function to get the account balance easily
+	///
+	/// # Arguments:
+	/// asset_id: The asset were trying to query
+	/// who: The account for which the balance should be retrived
+	///
+	/// # Returns:
+	/// The balance of a user for a given asset
+	fn balance(asset_id: AssetIdOf<T>, who: &T::AccountId) -> BalanceOf<T> {
+		<<T as Config>::Currencies as Inspect<<T as frame_system::Config>::AccountId>>::balance(
+			asset_id, who,
+		)
 	}
 }

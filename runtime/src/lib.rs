@@ -300,6 +300,7 @@ impl pallet_dex::Config for Runtime {
 	type Event = Event;
 	type TakerFee = TakerFee;
 	type PalletId = DexPalletId;
+	type Currencies = Assets;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
