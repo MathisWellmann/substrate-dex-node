@@ -19,7 +19,7 @@ pub enum BaseOrQuote {
 
 /// Enumerates over buy and sell actions
 #[derive(RuntimeDebugNoBound, Clone, Eq, PartialEq, Encode, Decode, TypeInfo)]
-pub enum BuyOrSell {
+pub enum OrderType {
 	Buy,
 	Sell,
 }

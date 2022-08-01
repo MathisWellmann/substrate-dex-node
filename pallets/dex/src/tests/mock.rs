@@ -33,7 +33,7 @@ pub const DEX_PALLET_ACCOUNT: AccountId = AccountId32::new([
 
 pub const BTC: AssetId = 0;
 pub const XMR: AssetId = 1;
-pub const DOT: AssetId = 2;
+pub const USD: AssetId = 2;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -145,13 +145,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			assets: vec![
 				(BTC, DEX_PALLET_ACCOUNT, true, 1),
 				(XMR, DEX_PALLET_ACCOUNT, true, 1),
-				(DOT, DEX_PALLET_ACCOUNT, true, 1),
+				(USD, DEX_PALLET_ACCOUNT, true, 1),
 			],
 			metadata: vec![],
 			accounts: vec![
 				(BTC, ALICE, 1_000_000_000),
 				(XMR, ALICE, 1_000_000_000),
-				(DOT, ALICE, 1_000_000_000),
+				(USD, ALICE, 1_000_000_000),
 				(BTC, BOB, 1_000_000_000),
 				(BTC, CHARLIE, 1_000_000_000),
 			],

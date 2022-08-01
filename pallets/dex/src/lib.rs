@@ -16,10 +16,7 @@ use frame_support::{
 };
 pub use pallet::*;
 use sp_arithmetic::traits::*;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	DispatchError,
-};
+use sp_runtime::{traits::Zero, DispatchError};
 
 use sp_runtime::traits::AccountIdConversion;
 use types::*;
@@ -351,7 +348,7 @@ pub mod pallet {
 			let receive_amount = Self::get_received_amount(
 				pool_base_balance,
 				pool_quote_balance,
-				BuyOrSell::Buy,
+				OrderType::Buy,
 				quote_amount,
 			)?;
 
@@ -409,7 +406,7 @@ pub mod pallet {
 			let receive_amount = Self::get_received_amount(
 				pool_base_balance,
 				pool_quote_balance,
-				BuyOrSell::Sell,
+				OrderType::Sell,
 				base_amount,
 			)?;
 
@@ -450,7 +447,7 @@ pub mod pallet {
 		pub fn fill_price_estimate(
 			origin: OriginFor<T>,
 			market: Market<T>,
-			buy_or_sell: BuyOrSell,
+			buy_or_sell: OrderType,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			todo!();
@@ -462,7 +459,7 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	/// The internal account of the pool derived from this pallets id
 	#[inline(always)]
-	pub fn pool_account() -> T::AccountId {
+	fn pool_account() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
 	}
 
@@ -477,30 +474,42 @@ impl<T: Config> Pallet<T> {
 	/// # Returns:
 	/// If Ok, The balance that the user will receive from this exchange
 	/// Else some arithmetic error
-	pub fn get_received_amount(
+	fn get_received_amount(
 		pool_base_balance: BalanceOf<T>,
 		pool_quote_balance: BalanceOf<T>,
-		buy_or_sell: BuyOrSell,
+		buy_or_sell: OrderType,
 		amount: BalanceOf<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		if amount.is_zero() {
 			Ok(Zero::zero())
 		} else {
-			let (fee_numerator, fee_denominator) = T::TakerFee::get();
-
-			// TODO: match on buy_or_sell
-
-			let supply_with_fee = amount.saturating_mul(BalanceOf::<T>::from(
-				fee_denominator.saturating_sub(fee_numerator),
-			));
-			let numerator = supply_with_fee.saturating_mul(pool_base_balance);
-			let denom = pool_quote_balance
-				.saturating_mul(BalanceOf::<T>::from(fee_denominator))
-				.saturating_add(supply_with_fee);
-
-			let receive_amount = numerator
-				.checked_div(BalanceOf::<T>::from(denom))
+			let pool_k = pool_base_balance
+				.checked_mul(pool_quote_balance)
 				.ok_or(Error::<T>::ArithmeticError)?;
+
+			// TODO: include fees
+
+			let receive_amount = match buy_or_sell {
+				OrderType::Buy => {
+					let new_quote_balance = pool_quote_balance
+						.checked_add(amount)
+						.ok_or(Error::<T>::ArithmeticError)?;
+					let new_base_balance =
+						pool_k.checked_div(new_quote_balance).ok_or(Error::<T>::ArithmeticError)?;
+					pool_base_balance
+						.checked_sub(new_base_balance)
+						.ok_or(Error::<T>::ArithmeticError)?
+				},
+				OrderType::Sell => {
+					let new_base_balance =
+						pool_base_balance.checked_add(amount).ok_or(Error::<T>::ArithmeticError)?;
+					let new_quote_balance =
+						pool_k.checked_div(new_base_balance).ok_or(Error::<T>::ArithmeticError)?;
+					pool_quote_balance
+						.checked_sub(new_quote_balance)
+						.ok_or(Error::<T>::ArithmeticError)?
+				},
+			};
 
 			Ok(receive_amount)
 		}

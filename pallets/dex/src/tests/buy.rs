@@ -30,13 +30,18 @@ fn buy_not_enough_balance() {
 fn buy() {
 	new_test_ext().execute_with(|| {
 		let origin = Origin::signed(ALICE);
-		assert_ok!(crate::Pallet::<Test>::create_market_pool(origin.clone(), BTC, XMR, 100, 100));
+		assert_ok!(crate::Pallet::<Test>::create_market_pool(origin.clone(), BTC, USD, 100, 100));
 
-		let market = (BTC, XMR);
+		let market = (BTC, USD);
 		assert_ok!(crate::Pallet::<Test>::buy(origin, market, 10));
+
+		// Check the storage changes
+		assert_eq!(crate::Pallet::<Test>::balance(USD, &ALICE), 90);
+		assert_eq!(crate::Pallet::<Test>::balance(BTC, &ALICE), 110);
 	})
 }
 
+/// Just experimenting
 #[test]
 fn pallet_account() {
 	new_test_ext().execute_with(|| {
