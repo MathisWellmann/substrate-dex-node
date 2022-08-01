@@ -1,6 +1,6 @@
 [package]
 name = "node"
-version = "0.1.2"
+version = "0.1.3"
 description = "A FRAME-based Substrate node for a multi-asset DEX"
 authors = ["MathisWellmann <wellmannmathis@gmail.com"]
 homepage = "https://github.com/MathisWellmann"
@@ -58,6 +58,8 @@ frame-benchmarking-cli = { version = "4.0.0-dev", git = "https://github.com/pari
 
 # Local Dependencies
 node-runtime = { version = "^1.0.0", path = "../runtime" }
+pallet-dex-rpc = { version = "^0.1.0", path = "../pallets/dex/rpc" }
+pallet-dex-runtime-api = { version = "^0.1.0", path = "../pallets/dex/rpc/runtime-api" }
 
 # CLI-specific dependencies
 try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }

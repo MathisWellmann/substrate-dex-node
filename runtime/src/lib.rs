@@ -499,6 +499,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_dex_runtime_api::DexRuntimeApi<Block> for Runtime {
+		fn current_price(market: (u8, u8)) -> (u128, u128) {
+			todo!()
+		}
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (

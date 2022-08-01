@@ -436,15 +436,15 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Allows the user to get a fill price estimate for a given market and desired amount
+		/// Allows the user to get the current price for a given market
+		/// This does not represent the actual fill price,
+		/// which is dependent on the amount traded, aka slippage
 		///
 		/// # Arguments:
 		/// origin: The obiquitous origin of a transaction
 		/// market: The market for which the price estimate is emitted
-		/// buy_or_sell: Whether the user wants a buy or sell estimate
-		/// amount: The amount dictates the slippage and price impact
 		#[pallet::weight(1_000)]
-		pub fn fill_price_estimate(
+		pub fn current_price(
 			origin: OriginFor<T>,
 			market: Market<T>,
 			buy_or_sell: OrderType,

@@ -1,6 +1,6 @@
 [package]
 name = "node-runtime"
-version = "1.0.4"
+version = "1.0.5"
 description = "A FRAME-based Substrate runtime for multi-asset DEX"
 authors = ["MathisWellmann <wellmannmathis@gmail.com>"]
 homepage = "https://github.com/MathisWellmann"
@@ -51,6 +51,7 @@ hex-literal = { version = "0.3.4", optional = true }
 
 # Local Dependencies
 pallet-dex = { version = "^0.1.0", default-features = false, path = "../pallets/dex" }
+pallet-dex-runtime-api = { version = "^0.1", default-features = false, path = "../pallets/dex/rpc/runtime-api" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
@@ -70,6 +71,7 @@ std = [
 	"pallet-randomness-collective-flip/std",
 	"pallet-sudo/std",
 	"pallet-dex/std",
+	"pallet-dex-runtime-api/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
