@@ -3,9 +3,24 @@
 //! This pallet provides functionality for an constant product market maker
 //! Similar to Uniswap v2.
 //!
-//! TODO: more docs
+//! # Overview:
+//! A decentralized automated market maker allows users to buy and sell
+//! assets where the counterparty is the liqudity pool itself
+//! rather than another user (unlike orderbook based exchanges),
+//! This has the advantage of "always on" liquidity.
+//! This is achieved by keeping the value of the liquidity pool constant,
+//! so only the prices change as the quantity changes
+//!
+//! # Interface:
+//! create_market_pool: Allows the user to create a liquidity pool with some initial balance
+//! deposit_liquidity: Allows the user to add liqudity to a pool to earn part of the collected fees
+//! withdraw_liquidity: Allows the user to remove his liquidity from a pool
+//! buy: Allows the user to exchange the QUOTE asset for the BASE asset
+//! sell: Allows the user to exchange the BASE asset for the QUOTE asset
+//!
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![deny(missing_docs)]
 
 use frame_support::{
 	traits::{
@@ -37,6 +52,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// The ubiqutous event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		/// The taker fee a user pays for taking liquidity and doing the asset swap
@@ -433,24 +449,6 @@ pub mod pallet {
 
 			Self::deposit_event(Event::Sold(who, market, base_amount, receive_amount));
 
-			Ok(())
-		}
-
-		/// Allows the user to get the current price for a given market
-		/// This does not represent the actual fill price,
-		/// which is dependent on the amount traded, aka slippage
-		///
-		/// # Arguments:
-		/// origin: The obiquitous origin of a transaction
-		/// market: The market for which the price estimate is emitted
-		#[pallet::weight(1_000)]
-		pub fn current_price(
-			origin: OriginFor<T>,
-			market: Market<T>,
-			buy_or_sell: OrderType,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			todo!();
 			Ok(())
 		}
 	}

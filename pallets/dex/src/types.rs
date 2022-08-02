@@ -1,7 +1,8 @@
 //! Contains all the types for this pallet
+#![allow(type_alias_bounds)]
 
 use crate::Config;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use frame_support::traits::tokens::fungibles::Inspect;
 use frame_support::RuntimeDebugNoBound;
 use scale_info::TypeInfo;

@@ -50,7 +50,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 hex-literal = { version = "0.3.4", optional = true }
 
 # Local Dependencies
-pallet-dex = { version = "^0.1.0", default-features = false, path = "../pallets/dex" }
+pallet-dex = { version = "^0.2.0", default-features = false, path = "../pallets/dex" }
 pallet-dex-runtime-api = { version = "^0.1", default-features = false, path = "../pallets/dex/rpc/runtime-api" }
 
 [build-dependencies]

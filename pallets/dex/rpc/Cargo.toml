@@ -1,6 +1,6 @@
 [package]
 name = "pallet-dex-rpc"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "The RPC interface for the DEX pallet"
 authors = ["MathisWellmann <wellmannmathis@gmail.com>"]
@@ -24,5 +24,5 @@ sp-blockchain = { version = "4.0.0-dev", default-features = false, git = "http:/
 sp-api = { version = "4.0.0-dev", default-features = false, git = "http://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
 sp-application-crypto = { version = "6.0.0", default-features = false, git = "http://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
 
-pallet-dex = { version = "^0.1", path = ".."}
+pallet-dex = { version = "^0.2", path = ".."}
 pallet-dex-runtime-api = { version = "^0.1", path = "./runtime-api" }
