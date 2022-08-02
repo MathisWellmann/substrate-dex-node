@@ -49,7 +49,7 @@ where
 		let (numerator, denominator) =
 			api.current_price(&at, market).map_err(|_e| Error::RuntimeCall)?;
 
-		Ok((numerator as f64 / denominator as f64))
+		Ok(numerator as f64 / denominator as f64)
 	}
 }
 

@@ -501,7 +501,17 @@ impl_runtime_apis! {
 
 	impl pallet_dex_runtime_api::DexRuntimeApi<Block> for Runtime {
 		fn current_price(market: (u8, u8)) -> (u128, u128) {
-			todo!()
+			match pallet_dex::LiquidityPool::<Runtime>::get(market) {
+				Some((pool_base_balance, pool_quote_balance)) => {
+					let price = pool_quote_balance.checked_div(pool_base_balance).or(Some(0)).expect("Already ored the output; qed");
+
+					// TODO: The price precision should come from the market configuration in the future
+					const DENOM: u128 = 10_000;
+
+					(price.saturating_mul(DENOM), DENOM)
+				},
+				None => (0, 0)
+			}
 		}
 	}
 

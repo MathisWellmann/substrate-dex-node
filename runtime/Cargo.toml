@@ -1,6 +1,6 @@
 [package]
 name = "node-runtime"
-version = "1.0.5"
+version = "1.0.6"
 description = "A FRAME-based Substrate runtime for multi-asset DEX"
 authors = ["MathisWellmann <wellmannmathis@gmail.com>"]
 homepage = "https://github.com/MathisWellmann"
