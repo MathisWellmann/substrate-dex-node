@@ -128,14 +128,7 @@ pub mod pallet {
 		/// 1: The market it's been withdrawn from
 		/// 2: The amount of BASE asset withdrawn
 		/// 3: The amount of QUOTE asset withdrawn
-		LiquidtyWithdrawn(T::AccountId, Market<T>, BalanceOf<T>, BalanceOf<T>),
-
-		/// A liquidity provider (maker) has been rewarded with some balance
-		///
-		/// # Fields:
-		/// 0: The account which received a payout
-		/// 1: The amount that has been payed out
-		LiquidityProviderRewarded(T::AccountId, BalanceOf<T>),
+		LiquidityWithdrawn(T::AccountId, Market<T>, BalanceOf<T>, BalanceOf<T>),
 
 		/// A user bought the BASE asset
 		///
@@ -397,7 +390,7 @@ pub mod pallet {
 			// update LiqProvisionPool
 			LiqProvisionPool::<T>::try_mutate(
 				market,
-				who,
+				who.clone(),
 				|(base_balance, quote_balance)| -> DispatchResult {
 					*base_balance =
 						base_balance.checked_sub(base_amount).ok_or(Error::<T>::Arithmetic)?;
@@ -407,6 +400,8 @@ pub mod pallet {
 					Ok(())
 				},
 			)?;
+
+			Self::deposit_event(Event::LiquidityWithdrawn(who, market, base_amount, quote_amount));
 
 			Ok(())
 		}
@@ -718,10 +713,10 @@ impl<T: Config> Pallet<T> {
 		for (market, market_info) in &lps {
 			let (base_asset, quote_asset) = market;
 
-			if market_info.collected_base_fees == Zero::zero() &&
-				market_info.collected_quote_fees == Zero::zero()
+			if market_info.collected_base_fees == Zero::zero()
+				&& market_info.collected_quote_fees == Zero::zero()
 			{
-				continue
+				continue;
 			}
 
 			let liquidity_providers: Vec<(T::AccountId, (BalanceOf<T>, BalanceOf<T>))> =
