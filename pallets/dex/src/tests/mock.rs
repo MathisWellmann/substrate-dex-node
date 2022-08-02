@@ -134,7 +134,9 @@ impl crate::Config for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	GenesisConfig {
-		balances: BalancesConfig { balances: vec![(ALICE, 1_000), (BOB, 1_000), (CHARLIE, 1_000)] },
+		balances: BalancesConfig {
+			balances: vec![(ALICE, 1_000_000), (BOB, 1_000_000), (CHARLIE, 1_000_000)],
+		},
 		assets: AssetsConfig {
 			assets: vec![
 				(BTC, DEX_PALLET_ACCOUNT, true, 1),
@@ -143,11 +145,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			],
 			metadata: vec![],
 			accounts: vec![
-				(BTC, ALICE, 1_000),
-				(XMR, ALICE, 1_000),
-				(USD, ALICE, 1_000),
-				(BTC, BOB, 1_000),
-				(BTC, CHARLIE, 1_000),
+				(BTC, ALICE, 1_000_000),
+				(XMR, ALICE, 1_000_000),
+				(USD, ALICE, 1_000_000),
+				(BTC, BOB, 1_000_000),
+				(BTC, CHARLIE, 1_000_000),
 			],
 		},
 		..Default::default()

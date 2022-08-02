@@ -164,7 +164,7 @@ pub mod pallet {
 		NotEnoughBalance,
 
 		/// Some arithmetic error occurred
-		ArithmeticError,
+		Arithmetic,
 	}
 
 	#[pallet::hooks]
@@ -294,11 +294,11 @@ pub mod pallet {
 				market_info
 					.base_balance
 					.checked_add(base_amount)
-					.ok_or(Error::<T>::ArithmeticError)?;
+					.ok_or(Error::<T>::Arithmetic)?;
 				market_info
 					.quote_balance
 					.checked_add(quote_amount)
-					.ok_or(Error::<T>::ArithmeticError)?;
+					.ok_or(Error::<T>::Arithmetic)?;
 
 				Ok(())
 			})?;
@@ -328,10 +328,9 @@ pub mod pallet {
 				who.clone(),
 				|(base_balance, quote_balance)| -> DispatchResult {
 					*base_balance =
-						base_balance.checked_add(base_amount).ok_or(Error::<T>::ArithmeticError)?;
-					*quote_balance = quote_balance
-						.checked_add(quote_amount)
-						.ok_or(Error::<T>::ArithmeticError)?;
+						base_balance.checked_add(base_amount).ok_or(Error::<T>::Arithmetic)?;
+					*quote_balance =
+						quote_balance.checked_add(quote_amount).ok_or(Error::<T>::Arithmetic)?;
 
 					Ok(())
 				},
@@ -394,10 +393,9 @@ pub mod pallet {
 				who.clone(),
 				|(base_balance, quote_balance)| -> DispatchResult {
 					*base_balance =
-						base_balance.checked_sub(base_amount).ok_or(Error::<T>::ArithmeticError)?;
-					*quote_balance = quote_balance
-						.checked_sub(quote_amount)
-						.ok_or(Error::<T>::ArithmeticError)?;
+						base_balance.checked_sub(base_amount).ok_or(Error::<T>::Arithmetic)?;
+					*quote_balance =
+						quote_balance.checked_sub(quote_amount).ok_or(Error::<T>::Arithmetic)?;
 
 					Ok(())
 				},
@@ -438,6 +436,10 @@ pub mod pallet {
 				OrderType::Buy,
 				quote_amount,
 			)?;
+			let fee_quote = Self::fee_from_amount(quote_amount)?;
+			// This is the amount of QUOTE currency being deposited into the pool
+			let deposit_amount =
+				quote_amount.checked_sub(fee_quote).ok_or(Error::<T>::Arithmetic)?;
 
 			let pool_account = Self::pool_account();
 
@@ -446,7 +448,7 @@ pub mod pallet {
 				quote_asset,
 				&who,
 				&pool_account,
-				quote_amount,
+				deposit_amount,
 				true,
 			)?;
 			// And get the BASE asset out of the pool
@@ -455,6 +457,16 @@ pub mod pallet {
 				&pool_account,
 				&who,
 				receive_amount,
+				true,
+			)?;
+
+			// Transfer the taker fee to a separate account
+			let pool_fee_account = Self::pool_fee_account();
+			<T as Config>::Currencies::transfer(
+				quote_asset,
+				&who,
+				&pool_fee_account,
+				fee_quote,
 				true,
 			)?;
 
@@ -468,15 +480,15 @@ pub mod pallet {
 							market_info.base_balance = market_info
 								.base_balance
 								.checked_sub(receive_amount)
-								.ok_or(Error::<T>::ArithmeticError)?;
+								.ok_or(Error::<T>::Arithmetic)?;
 							market_info.quote_balance = market_info
 								.quote_balance
-								.checked_add(quote_amount)
-								.ok_or(Error::<T>::ArithmeticError)?;
+								.checked_add(deposit_amount)
+								.ok_or(Error::<T>::Arithmetic)?;
 							market_info.collected_quote_fees = market_info
 								.collected_quote_fees
 								.checked_add(fee_quote)
-								.ok_or(Error::<T>::ArithmeticError)?;
+								.ok_or(Error::<T>::Arithmetic)?;
 						},
 						None => panic!("It has been checked before that this is Some; qed"),
 					}
@@ -521,6 +533,9 @@ pub mod pallet {
 				OrderType::Sell,
 				base_amount,
 			)?;
+			let fee_base = Self::fee_from_amount(base_amount)?;
+			// This is the amount of BASE currency being deposited into the pool
+			let deposit_amount = base_amount.checked_sub(fee_base).ok_or(Error::<T>::Arithmetic)?;
 
 			let pool_account = Self::pool_account();
 
@@ -529,7 +544,7 @@ pub mod pallet {
 				base_asset,
 				&who,
 				&pool_account,
-				base_amount,
+				deposit_amount,
 				true,
 			)?;
 			// And get the QUOTE asset out of the pool
@@ -538,6 +553,16 @@ pub mod pallet {
 				&pool_account,
 				&who,
 				receive_amount,
+				true,
+			)?;
+
+			// Transfer taker fee into separate pool account
+			let pool_fee_account = Self::pool_fee_account();
+			<T as Config>::Currencies::transfer(
+				base_asset,
+				&who,
+				&pool_fee_account,
+				fee_base,
 				true,
 			)?;
 
@@ -550,16 +575,16 @@ pub mod pallet {
 						Some(market_info) => {
 							market_info.base_balance = market_info
 								.base_balance
-								.checked_add(base_amount)
-								.ok_or(Error::<T>::ArithmeticError)?;
+								.checked_add(deposit_amount)
+								.ok_or(Error::<T>::Arithmetic)?;
 							market_info.quote_balance = market_info
 								.quote_balance
 								.checked_sub(receive_amount)
-								.ok_or(Error::<T>::ArithmeticError)?;
+								.ok_or(Error::<T>::Arithmetic)?;
 							market_info.collected_quote_fees = market_info
 								.collected_base_fees
 								.checked_add(fee_base)
-								.ok_or(Error::<T>::ArithmeticError)?;
+								.ok_or(Error::<T>::Arithmetic)?;
 						},
 						None => panic!("It has been checked before that this is Some; qed"),
 					}
@@ -610,29 +635,26 @@ impl<T: Config> Pallet<T> {
 		} else {
 			let pool_k = pool_base_balance
 				.checked_mul(pool_quote_balance)
-				.ok_or(Error::<T>::ArithmeticError)?;
+				.ok_or(Error::<T>::Arithmetic)?;
 
-			// TODO: include fees
-
+			let fee_amount = Self::fee_from_amount(amount)?;
+			let amount = amount.checked_sub(fee_amount).ok_or(Error::<T>::Arithmetic)?;
 			let receive_amount = match buy_or_sell {
 				OrderType::Buy => {
-					let new_quote_balance = pool_quote_balance
-						.checked_add(amount)
-						.ok_or(Error::<T>::ArithmeticError)?;
+					let new_quote_balance =
+						pool_quote_balance.checked_add(amount).ok_or(Error::<T>::Arithmetic)?;
 					let new_base_balance =
-						pool_k.checked_div(new_quote_balance).ok_or(Error::<T>::ArithmeticError)?;
-					pool_base_balance
-						.checked_sub(new_base_balance)
-						.ok_or(Error::<T>::ArithmeticError)?
+						pool_k.checked_div(new_quote_balance).ok_or(Error::<T>::Arithmetic)?;
+					pool_base_balance.checked_sub(new_base_balance).ok_or(Error::<T>::Arithmetic)?
 				},
 				OrderType::Sell => {
 					let new_base_balance =
-						pool_base_balance.checked_add(amount).ok_or(Error::<T>::ArithmeticError)?;
+						pool_base_balance.checked_add(amount).ok_or(Error::<T>::Arithmetic)?;
 					let new_quote_balance =
-						pool_k.checked_div(new_base_balance).ok_or(Error::<T>::ArithmeticError)?;
+						pool_k.checked_div(new_base_balance).ok_or(Error::<T>::Arithmetic)?;
 					pool_quote_balance
 						.checked_sub(new_quote_balance)
-						.ok_or(Error::<T>::ArithmeticError)?
+						.ok_or(Error::<T>::Arithmetic)?
 				},
 			};
 
@@ -670,10 +692,10 @@ impl<T: Config> Pallet<T> {
 
 		let a = amount
 			.checked_mul(BalanceOf::<T>::from(fee_numerator))
-			.ok_or(Error::<T>::ArithmeticError)?;
+			.ok_or(Error::<T>::Arithmetic)?;
 
 		a.checked_div(BalanceOf::<T>::from(fee_denominator))
-			.ok_or(Error::<T>::ArithmeticError)
+			.ok_or(Error::<T>::Arithmetic)
 	}
 
 	/// Performs the payout of collected fee to liquidity providers
