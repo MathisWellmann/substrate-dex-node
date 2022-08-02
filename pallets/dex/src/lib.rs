@@ -167,6 +167,18 @@ pub mod pallet {
 		ArithmeticError,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn offchain_worker(now: BlockNumberFor<T>) {
+			// Reward the liquidity providers every 10 blocks
+			if now % 10u32.into() == Zero::zero() {
+				if let Err(e) = Self::do_liquidity_provider_payout() {
+					log::error!("do_liquidity_provider_payout failed due to {:?}", e);
+				}
+			}
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Creates a new pool for a market if it does not exist already
@@ -570,6 +582,12 @@ impl<T: Config> Pallet<T> {
 		T::PalletId::get().into_account_truncating()
 	}
 
+	/// A separate account for collecting the fees into
+	#[inline(always)]
+	fn pool_fee_account() -> T::AccountId {
+		T::PalletId::get().try_into_sub_account(b"fee-account").expect("")
+	}
+
 	/// Calculates the received amount when buying or selling a given amount
 	///
 	/// # Arguments:
@@ -656,5 +674,19 @@ impl<T: Config> Pallet<T> {
 
 		a.checked_div(BalanceOf::<T>::from(fee_denominator))
 			.ok_or(Error::<T>::ArithmeticError)
+	}
+
+	/// Performs the payout of collected fee to liquidity providers
+	/// Triggered every 10 blocks by offchain worker
+	fn do_liquidity_provider_payout() -> Result<(), Error<T>> {
+		LiquidityPool::<T>::iter().for_each(|(_market, market_info)| {
+			if market_info.collected_base_fees >= Zero::zero() {
+				// TODO:
+			}
+			if market_info.collected_quote_fees >= Zero::zero() {
+				// TODO:
+			}
+		});
+		Ok(())
 	}
 }

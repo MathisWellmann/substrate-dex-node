@@ -10,6 +10,7 @@ We all know the standard node-template README, so I'll just focus on whats new a
 - Block time of 500ms for that low latency trading goodness, may not be the best IRL though due to partitioning concerns due to global latencies
 - Custom RPC endpoint integrated for querying the current price of a market
 - Custom runtime-api which is obviously required by RPC
+- Offchain worker which rewards liquidity providers every 10 blocks
 
 ## TODOs:
 - Collect taker fees

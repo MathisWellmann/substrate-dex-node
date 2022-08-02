@@ -58,13 +58,3 @@ fn buy() {
 		);
 	})
 }
-
-/// Just experimenting
-#[test]
-fn pallet_account() {
-	new_test_ext().execute_with(|| {
-		let pool_account = crate::Pallet::<Test>::pool_account();
-		let bytes: &[u8; 32] = pool_account.as_ref();
-		println!("pool_account: {:?}", bytes);
-	})
-}
