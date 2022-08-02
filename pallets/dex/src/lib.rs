@@ -94,7 +94,7 @@ pub mod pallet {
 		Blake2_128Concat,
 		T::AccountId,
 		(BalanceOf<T>, BalanceOf<T>),
-		OptionQuery,
+		ValueQuery,
 	>;
 
 	#[pallet::event]
@@ -302,12 +302,12 @@ pub mod pallet {
 			LiqProvisionPool::<T>::try_mutate(
 				market,
 				who.clone(),
-				|opt_balances| -> DispatchResult {
-					let (base_balance, quote_balance) = opt_balances
-						.expect("The existance of the balances here has been checked before; qed");
-
-					base_balance.checked_add(base_amount).ok_or(Error::<T>::ArithmeticError)?;
-					quote_balance.checked_add(quote_amount).ok_or(Error::<T>::ArithmeticError)?;
+				|(base_balance, quote_balance)| -> DispatchResult {
+					*base_balance =
+						base_balance.checked_add(base_amount).ok_or(Error::<T>::ArithmeticError)?;
+					*quote_balance = quote_balance
+						.checked_add(quote_amount)
+						.ok_or(Error::<T>::ArithmeticError)?;
 
 					Ok(())
 				},
@@ -318,20 +318,33 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Allows the user to withdraw liquidity from a pool
+		/// Allows the user to withdraw his liquidity from a pool
 		///
 		/// # Arguments:
 		/// origin: The obiquitous origin of a transaction
-		/// boq: Whether the user deposits the BASE or QUOTE asset
-		/// amount: The amount to deposit
+		/// market: The liquidity pool to withdraw from
+		/// base_amount: The amount of the BASE asset to withdraw
+		/// quote_amount: The amount of the QUOTE asset to withdraw
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1, 1))]
 		#[transactional] // This Dispatchable is atomic
 		pub fn withdraw_liquidity(
 			origin: OriginFor<T>,
-			bog: BaseOrQuote,
-			amount: BalanceOf<T>,
+			market: Market<T>,
+			base_amount: BalanceOf<T>,
+			quote_amount: BalanceOf<T>,
 		) -> DispatchResult {
-			todo!();
+			let who = ensure_signed(origin)?;
+
+			let (base_asset, quote_asset) = market;
+			let pool_account = Self::pool_account();
+
+			// ensure the user has enough balance in the pool to withdraw
+			let (users_base_balance, users_quote_balance) = LiqProvisionPool::<T>::get(market, who);
+			ensure!(users_base_balance >= base_amount, Error::<T>::NotEnoughBalance);
+			ensure!(users_quote_balance >= quote_amount, Error::<T>::NotEnoughBalance);
+
+			// TODO:
+
 			Ok(())
 		}
 

@@ -41,11 +41,13 @@ fn deposit_liquidity() {
 		let market = (base_asset, quote_asset);
 
 		assert_ok!(crate::Pallet::<Test>::create_market_pool(origin.clone(), BTC, USD, 100, 100));
-
 		assert_ok!(crate::Pallet::<Test>::deposit_liquidity(origin, market, 100, 100));
 
-		// Check storage changes
+		// Check user balance changes
 		assert_eq!(crate::Pallet::<Test>::balance(base_asset, &ALICE), 800);
 		assert_eq!(crate::Pallet::<Test>::balance(quote_asset, &ALICE), 800);
+
+		// Check LiqProvisionPool storage
+		assert_eq!(crate::LiqProvisionPool::<Test>::get(market, ALICE), (200, 200));
 	})
 }
