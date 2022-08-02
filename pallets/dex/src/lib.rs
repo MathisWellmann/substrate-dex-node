@@ -339,11 +339,42 @@ pub mod pallet {
 			let pool_account = Self::pool_account();
 
 			// ensure the user has enough balance in the pool to withdraw
-			let (users_base_balance, users_quote_balance) = LiqProvisionPool::<T>::get(market, who);
+			let (users_base_balance, users_quote_balance) =
+				LiqProvisionPool::<T>::get(market, &who);
 			ensure!(users_base_balance >= base_amount, Error::<T>::NotEnoughBalance);
 			ensure!(users_quote_balance >= quote_amount, Error::<T>::NotEnoughBalance);
 
-			// TODO:
+			// transfer out BASE asset from pool
+			<T as Config>::Currencies::transfer(
+				base_asset,
+				&pool_account,
+				&who,
+				base_amount,
+				true,
+			)?;
+			// transfer out QUOTE asset from pool
+			<T as Config>::Currencies::transfer(
+				quote_asset,
+				&pool_account,
+				&who,
+				quote_amount,
+				true,
+			)?;
+
+			// update LiqProvisionPool
+			LiqProvisionPool::<T>::try_mutate(
+				market,
+				who.clone(),
+				|(base_balance, quote_balance)| -> DispatchResult {
+					*base_balance =
+						base_balance.checked_sub(base_amount).ok_or(Error::<T>::ArithmeticError)?;
+					*quote_balance = quote_balance
+						.checked_sub(quote_amount)
+						.ok_or(Error::<T>::ArithmeticError)?;
+
+					Ok(())
+				},
+			)?;
 
 			Ok(())
 		}
