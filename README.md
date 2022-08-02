@@ -13,6 +13,7 @@ We all know the standard node-template README, so I'll just focus on whats new a
 - Collect taker fees
 - Pay out liquidity provider rewards
 - Test all Dispatchables
+- Make sure all tests cover all storage changes
 - Create trading agent for simulation purposes
 - Inlcude checks for Event in tests as well
 - Use cargo clippy
