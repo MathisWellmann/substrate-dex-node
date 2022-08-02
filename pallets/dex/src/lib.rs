@@ -18,11 +18,16 @@
 //! buy: Allows the user to exchange the QUOTE asset for the BASE asset
 //! sell: Allows the user to exchange the BASE asset for the QUOTE asset
 //!
+//! # Hooks:
+//! The offchain worker calls a function every 10 blocks
+//! which perform the payout to the liquidity providers as a reward
+//!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
 
 use frame_support::{
+	inherent::Vec,
 	traits::{
 		tokens::fungibles::{Inspect, Transfer},
 		Get,
@@ -165,6 +170,9 @@ pub mod pallet {
 
 		/// Some arithmetic error occurred
 		Arithmetic,
+
+		/// originates from T::Currencies::transfer basically
+		Transfer,
 	}
 
 	#[pallet::hooks]
@@ -700,15 +708,82 @@ impl<T: Config> Pallet<T> {
 
 	/// Performs the payout of collected fee to liquidity providers
 	/// Triggered every 10 blocks by offchain worker
+	///
+	/// # Complexity:
+	/// O(n^2) currently which should be improved upon
 	fn do_liquidity_provider_payout() -> Result<(), Error<T>> {
-		LiquidityPool::<T>::iter().for_each(|(_market, market_info)| {
-			if market_info.collected_base_fees >= Zero::zero() {
-				// TODO:
+		let pool_fee_account = Self::pool_fee_account();
+
+		let lps: Vec<(Market<T>, MarketInfo<T>)> = LiquidityPool::<T>::iter().collect();
+
+		for (market, market_info) in &lps {
+			let (base_asset, quote_asset) = market;
+
+			if market_info.collected_base_fees == Zero::zero()
+				&& market_info.collected_quote_fees == Zero::zero()
+			{
+				continue;
 			}
-			if market_info.collected_quote_fees >= Zero::zero() {
-				// TODO:
+
+			let liquidity_providers: Vec<(T::AccountId, (BalanceOf<T>, BalanceOf<T>))> =
+				LiqProvisionPool::<T>::iter_prefix(market).collect();
+			for (account, (base_provision, quote_provision)) in &liquidity_providers {
+				if *base_provision > Zero::zero() {
+					// The ratio of the users provided liquidity relative to pool liquidity for the BASE asset
+					let payout_fraction = base_provision
+						.checked_div(market_info.base_balance)
+						.ok_or(Error::<T>::Arithmetic)?;
+					// The payout which is a fraction of the total collected fees
+					let payout = market_info
+						.collected_base_fees
+						.checked_mul(payout_fraction)
+						.ok_or(Error::<T>::Arithmetic)?;
+
+					// transfer payout amount from pool_fee_account to liquidity provider
+					<T as Config>::Currencies::transfer(
+						*base_asset,
+						&pool_fee_account,
+						&account,
+						payout,
+						true,
+					)
+					.map_err(|_| Error::<T>::Transfer)?;
+				}
+				if *quote_provision > Zero::zero() {
+					// similar procedure as for the BASE asset
+
+					let payout_fraction = quote_provision
+						.checked_div(market_info.quote_balance)
+						.ok_or(Error::<T>::Arithmetic)?;
+					let payout = market_info
+						.collected_quote_fees
+						.checked_mul(payout_fraction)
+						.ok_or(Error::<T>::Arithmetic)?;
+
+					// transfer payout amount from pool_fee_account to liquidity provider
+					<T as Config>::Currencies::transfer(
+						*quote_asset,
+						&pool_fee_account,
+						&account,
+						payout,
+						true,
+					)
+					.map_err(|_| Error::<T>::Transfer)?;
+				}
 			}
-		});
+
+			// clear collected_base_fee as they've been distributed
+			LiquidityPool::<T>::mutate(market, |opt_market_info| match opt_market_info.as_mut() {
+				Some(market_info) => {
+					market_info.collected_base_fees = Zero::zero();
+					market_info.collected_quote_fees = Zero::zero();
+				},
+				None => log::error!(
+					"this should not happen ever, as we previously got the key from the map; qed"
+				),
+			});
+		}
+
 		Ok(())
 	}
 }
