@@ -30,7 +30,6 @@ use frame_support::{
 	transactional, PalletId,
 };
 pub use pallet::*;
-use sp_arithmetic::traits::*;
 use sp_runtime::{traits::Zero, DispatchError};
 
 use sp_runtime::traits::AccountIdConversion;
@@ -334,6 +333,9 @@ pub mod pallet {
 			quote_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
+			// Check that the market exists
+			ensure!(LiquidityPool::<T>::get(market).is_some(), Error::<T>::MarketDoesNotExist);
 
 			let (base_asset, quote_asset) = market;
 			let pool_account = Self::pool_account();
