@@ -67,4 +67,5 @@ fn withdraw_liquidity() {
 	})
 }
 
-// TODO: there should be a test to ensure that withdrawing liquidity does not destroy the pool and set the balances to zero
+// TODO: there should be a test to ensure that withdrawing liquidity does not destroy the pool and
+// set the balances to zero

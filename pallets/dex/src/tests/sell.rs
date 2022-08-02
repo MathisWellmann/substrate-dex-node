@@ -53,7 +53,8 @@ fn sell() {
 			}
 		);
 
-		// Check storage changes. Notice that the liquidity that ALICE has locked is also not here anymore
+		// Check storage changes. Notice that the liquidity that ALICE has locked is also not here
+		// anymore
 		assert_eq!(crate::Pallet::<Test>::balance(BTC, &ALICE), 890_000);
 		assert_eq!(crate::Pallet::<Test>::balance(USD, &ALICE), 909_083);
 

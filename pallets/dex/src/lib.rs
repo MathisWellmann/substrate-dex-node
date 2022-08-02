@@ -21,7 +21,6 @@
 //! # Hooks:
 //! The offchain worker calls a function every 10 blocks
 //! which perform the payout to the liquidity providers as a reward
-//!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(missing_docs)]
@@ -398,7 +397,7 @@ pub mod pallet {
 			// update LiqProvisionPool
 			LiqProvisionPool::<T>::try_mutate(
 				market,
-				who.clone(),
+				who,
 				|(base_balance, quote_balance)| -> DispatchResult {
 					*base_balance =
 						base_balance.checked_sub(base_amount).ok_or(Error::<T>::Arithmetic)?;
@@ -719,17 +718,18 @@ impl<T: Config> Pallet<T> {
 		for (market, market_info) in &lps {
 			let (base_asset, quote_asset) = market;
 
-			if market_info.collected_base_fees == Zero::zero()
-				&& market_info.collected_quote_fees == Zero::zero()
+			if market_info.collected_base_fees == Zero::zero() &&
+				market_info.collected_quote_fees == Zero::zero()
 			{
-				continue;
+				continue
 			}
 
 			let liquidity_providers: Vec<(T::AccountId, (BalanceOf<T>, BalanceOf<T>))> =
 				LiqProvisionPool::<T>::iter_prefix(market).collect();
 			for (account, (base_provision, quote_provision)) in &liquidity_providers {
 				if *base_provision > Zero::zero() {
-					// The ratio of the users provided liquidity relative to pool liquidity for the BASE asset
+					// The ratio of the users provided liquidity relative to pool liquidity for the
+					// BASE asset
 					let payout_fraction = base_provision
 						.checked_div(market_info.base_balance)
 						.ok_or(Error::<T>::Arithmetic)?;
@@ -743,7 +743,7 @@ impl<T: Config> Pallet<T> {
 					<T as Config>::Currencies::transfer(
 						*base_asset,
 						&pool_fee_account,
-						&account,
+						account,
 						payout,
 						true,
 					)
@@ -764,7 +764,7 @@ impl<T: Config> Pallet<T> {
 					<T as Config>::Currencies::transfer(
 						*quote_asset,
 						&pool_fee_account,
-						&account,
+						account,
 						payout,
 						true,
 					)

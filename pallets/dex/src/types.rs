@@ -3,8 +3,7 @@
 
 use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::tokens::fungibles::Inspect;
-use frame_support::RuntimeDebugNoBound;
+use frame_support::{traits::tokens::fungibles::Inspect, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 
 /// The type identifying a market, which consists of Base and Quote asset
