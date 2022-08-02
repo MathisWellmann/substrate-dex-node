@@ -78,7 +78,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn liquidity_pool)]
 	pub type LiquidityPool<T: Config> =
-		StorageMap<_, Blake2_128Concat, Market<T>, (BalanceOf<T>, BalanceOf<T>), OptionQuery>;
+		StorageMap<_, Blake2_128Concat, Market<T>, MarketInfo<T>, OptionQuery>;
 
 	/// Stores information regarding the liquidity provision of users in a given market
 	/// Used for rewarding liquidity providers from the collected taker fees.
@@ -225,7 +225,12 @@ pub mod pallet {
 			)?;
 
 			// Insert the balance information for the market
-			LiquidityPool::<T>::insert(market, (base_amount, quote_amount));
+			let market_info = MarketInfo {
+				base_balance: base_amount,
+				quote_balance: quote_amount,
+				fees_collected: Zero::zero(),
+			};
+			LiquidityPool::<T>::insert(market, market_info);
 
 			// remember who depsited what in the liquidity provision pool
 			LiqProvisionPool::<T>::insert(market, who.clone(), (base_amount, quote_amount));
@@ -268,12 +273,19 @@ pub mod pallet {
 			ensure!(quote_balance >= quote_amount, Error::<T>::NotEnoughBalance);
 
 			// Use try_mutate in case the closure fails, e.g.: arithmetic overflow
-			LiquidityPool::<T>::try_mutate(market, |opt_balances| -> DispatchResult {
-				let (base_balance, quote_balance) = opt_balances
+			LiquidityPool::<T>::try_mutate(market, |opt_market_info| -> DispatchResult {
+				let market_info = opt_market_info
+					.clone()
 					.expect("Check that the market pool exists has been done before; qed");
 
-				base_balance.checked_add(base_amount).ok_or(Error::<T>::ArithmeticError)?;
-				quote_balance.checked_add(quote_amount).ok_or(Error::<T>::ArithmeticError)?;
+				market_info
+					.base_balance
+					.checked_add(base_amount)
+					.ok_or(Error::<T>::ArithmeticError)?;
+				market_info
+					.quote_balance
+					.checked_add(quote_amount)
+					.ok_or(Error::<T>::ArithmeticError)?;
 
 				Ok(())
 			})?;
@@ -397,7 +409,7 @@ pub mod pallet {
 			let who = ensure_signed(origin.clone())?;
 
 			// get balance of pool, if it exists
-			let (pool_base_balance, pool_quote_balance) =
+			let market_info =
 				LiquidityPool::<T>::get(market).ok_or(Error::<T>::MarketDoesNotExist)?;
 
 			let (base_asset, quote_asset) = market;
@@ -408,8 +420,8 @@ pub mod pallet {
 
 			// get the amount to receive
 			let receive_amount = Self::get_received_amount(
-				pool_base_balance,
-				pool_quote_balance,
+				market_info.base_balance,
+				market_info.quote_balance,
 				OrderType::Buy,
 				quote_amount,
 			)?;
@@ -456,7 +468,7 @@ pub mod pallet {
 			let who = ensure_signed(origin.clone())?;
 
 			// get balance of pool, if it exists
-			let (pool_base_balance, pool_quote_balance) =
+			let market_info =
 				LiquidityPool::<T>::get(market).ok_or(Error::<T>::MarketDoesNotExist)?;
 
 			let (base_asset, quote_asset) = market;
@@ -466,8 +478,8 @@ pub mod pallet {
 			ensure!(base_balance >= base_amount, Error::<T>::NotEnoughBalance);
 
 			let receive_amount = Self::get_received_amount(
-				pool_base_balance,
-				pool_quote_balance,
+				market_info.base_balance,
+				market_info.quote_balance,
 				OrderType::Sell,
 				base_amount,
 			)?;

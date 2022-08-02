@@ -1,5 +1,7 @@
 use frame_support::assert_ok;
 
+use crate::types::MarketInfo;
+
 use super::*;
 
 #[test]
@@ -29,7 +31,10 @@ fn create_market_pool() {
 		));
 
 		// Check LiquidityPool storage changes
-		assert_eq!(<crate::LiquidityPool::<Test>>::get(market).unwrap(), (100, 100));
+		assert_eq!(
+			<crate::LiquidityPool::<Test>>::get(market).unwrap(),
+			MarketInfo { base_balance: 100, quote_balance: 100, fees_collected: 0 }
+		);
 
 		// Check LiqProvisionPool storage changes
 		assert_eq!(crate::LiqProvisionPool::<Test>::get(market, ALICE), (100, 100));
