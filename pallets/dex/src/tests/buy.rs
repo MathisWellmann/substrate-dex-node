@@ -1,5 +1,7 @@
 use frame_support::{assert_noop, assert_ok};
 
+use crate::types::MarketInfo;
+
 use super::*;
 
 #[test]
@@ -43,6 +45,17 @@ fn buy() {
 		assert_eq!(crate::Pallet::<Test>::balance(USD, &ALICE), 890);
 		// Notice how 100 BTC balance also went into the liquidity pool
 		assert_eq!(crate::Pallet::<Test>::balance(BTC, &ALICE), 910);
+
+		// Check the market_info
+		assert_eq!(
+			crate::LiquidityPool::<Test>::get(market).unwrap(),
+			MarketInfo {
+				base_balance: 90,
+				quote_balance: 110,
+				collected_base_fees: 0,
+				collected_quote_fees: 0
+			}
+		);
 	})
 }
 

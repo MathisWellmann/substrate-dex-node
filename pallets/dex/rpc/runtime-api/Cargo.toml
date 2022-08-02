@@ -1,6 +1,6 @@
 [package]
 name = "pallet-dex-runtime-api"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Runtime api for DEX pallet"
 authors = ["MathisWellmann <wellmannmathis@gmail.com>"]
@@ -17,7 +17,7 @@ sp-runtime = { version = "6.0.0", default-features = false, git = "https://githu
 frame-system = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.27" }
 codec = { package = "parity-scale-codec", version = "^3.0", default-features = false, features = ["derive"]}
 
-pallet-dex = { version = "^0.3", default-features = false, path = "../../../dex"}
+pallet-dex = { version = "^0.4", default-features = false, path = "../../../dex"}
 
 [features]
 default = ["std"]

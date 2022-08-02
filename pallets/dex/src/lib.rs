@@ -228,7 +228,8 @@ pub mod pallet {
 			let market_info = MarketInfo {
 				base_balance: base_amount,
 				quote_balance: quote_amount,
-				fees_collected: Zero::zero(),
+				collected_base_fees: Zero::zero(),
+				collected_quote_fees: Zero::zero(),
 			};
 			LiquidityPool::<T>::insert(market, market_info);
 
@@ -445,7 +446,32 @@ pub mod pallet {
 				true,
 			)?;
 
-			// TODO: collect fees somewhere
+			// update the market_info collected
+			let fee_quote = Self::fee_from_amount(quote_amount)?;
+			LiquidityPool::<T>::try_mutate(
+				market,
+				|opt_market_info: &mut Option<MarketInfo<T>>| -> Result<(), Error<T>> {
+					match opt_market_info.as_mut() {
+						Some(market_info) => {
+							market_info.base_balance = market_info
+								.base_balance
+								.checked_sub(receive_amount)
+								.ok_or(Error::<T>::ArithmeticError)?;
+							market_info.quote_balance = market_info
+								.quote_balance
+								.checked_add(quote_amount)
+								.ok_or(Error::<T>::ArithmeticError)?;
+							market_info.collected_quote_fees = market_info
+								.collected_quote_fees
+								.checked_add(fee_quote)
+								.ok_or(Error::<T>::ArithmeticError)?;
+						},
+						None => panic!("It has been checked before that this is Some; qed"),
+					}
+
+					Ok(())
+				},
+			)?;
 
 			Self::deposit_event(Event::Bought(who, market, quote_amount, receive_amount));
 
@@ -503,7 +529,32 @@ pub mod pallet {
 				true,
 			)?;
 
-			// TODO: collect fees somewhere
+			// update the market_info
+			let fee_base = Self::fee_from_amount(base_amount)?;
+			LiquidityPool::<T>::try_mutate(
+				market,
+				|opt_market_info: &mut Option<MarketInfo<T>>| -> Result<(), Error<T>> {
+					match opt_market_info.as_mut() {
+						Some(market_info) => {
+							market_info.base_balance = market_info
+								.base_balance
+								.checked_add(base_amount)
+								.ok_or(Error::<T>::ArithmeticError)?;
+							market_info.quote_balance = market_info
+								.quote_balance
+								.checked_sub(receive_amount)
+								.ok_or(Error::<T>::ArithmeticError)?;
+							market_info.collected_quote_fees = market_info
+								.collected_base_fees
+								.checked_add(fee_base)
+								.ok_or(Error::<T>::ArithmeticError)?;
+						},
+						None => panic!("It has been checked before that this is Some; qed"),
+					}
+
+					Ok(())
+				},
+			)?;
 
 			Self::deposit_event(Event::Sold(who, market, base_amount, receive_amount));
 
@@ -579,9 +630,31 @@ impl<T: Config> Pallet<T> {
 	///
 	/// # Returns:
 	/// The balance of a user for a given asset
+	///
+	/// # Weight:
+	/// This function has a DB read weight of 1, as it retreives the balance
 	fn balance(asset_id: AssetIdOf<T>, who: &T::AccountId) -> BalanceOf<T> {
 		<<T as Config>::Currencies as Inspect<<T as frame_system::Config>::AccountId>>::balance(
 			asset_id, who,
 		)
+	}
+
+	/// Computes the fee amount
+	///
+	/// # Arguments:
+	/// amount: The amount to exchange from which the fees are deducted
+	///
+	/// # Returns:
+	/// If ok, the fee amount
+	/// Else the arithmetic error
+	fn fee_from_amount(amount: BalanceOf<T>) -> Result<BalanceOf<T>, Error<T>> {
+		let (fee_numerator, fee_denominator) = <T as Config>::TakerFee::get();
+
+		let a = amount
+			.checked_mul(BalanceOf::<T>::from(fee_numerator))
+			.ok_or(Error::<T>::ArithmeticError)?;
+
+		a.checked_div(BalanceOf::<T>::from(fee_denominator))
+			.ok_or(Error::<T>::ArithmeticError)
 	}
 }

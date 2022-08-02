@@ -33,7 +33,12 @@ fn create_market_pool() {
 		// Check LiquidityPool storage changes
 		assert_eq!(
 			<crate::LiquidityPool::<Test>>::get(market).unwrap(),
-			MarketInfo { base_balance: 100, quote_balance: 100, fees_collected: 0 }
+			MarketInfo {
+				base_balance: 100,
+				quote_balance: 100,
+				collected_base_fees: 0,
+				collected_quote_fees: 0,
+			}
 		);
 
 		// Check LiqProvisionPool storage changes

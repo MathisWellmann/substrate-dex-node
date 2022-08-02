@@ -43,6 +43,9 @@ pub struct MarketInfo<T: Config> {
 	/// The balance of QUOTE asset in this pool
 	pub quote_balance: BalanceOf<T>,
 
-	/// The fees collected in this pool, which will be payed out periodically
-	pub fees_collected: BalanceOf<T>,
+	/// The fees collected in this pool, in BASE asset, which will be payed out periodically
+	pub collected_base_fees: BalanceOf<T>,
+
+	/// The fees collected in this pool, in QUOTE asset, which will be payed out periodically
+	pub collected_quote_fees: BalanceOf<T>,
 }
