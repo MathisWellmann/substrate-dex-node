@@ -52,18 +52,18 @@ fn withdraw_liquidity() {
 			origin_alice.clone(),
 			base_asset,
 			quote_asset,
-			100,
-			100
+			100_000,
+			100_000
 		));
 
-		assert_ok!(crate::Pallet::<Test>::withdraw_liquidity(origin_alice, market, 50, 50));
+		assert_ok!(crate::Pallet::<Test>::withdraw_liquidity(origin_alice, market, 50_000, 50_000));
 
 		// check balances
-		assert_eq!(crate::Pallet::<Test>::balance(base_asset, &ALICE), 950);
-		assert_eq!(crate::Pallet::<Test>::balance(quote_asset, &ALICE), 950);
+		assert_eq!(crate::Pallet::<Test>::balance(base_asset, &ALICE), 950_000);
+		assert_eq!(crate::Pallet::<Test>::balance(quote_asset, &ALICE), 950_000);
 
 		// check LiqProvisionPool changes
-		assert_eq!(crate::LiqProvisionPool::<Test>::get(market, ALICE), (50, 50));
+		assert_eq!(crate::LiqProvisionPool::<Test>::get(market, ALICE), (50_000, 50_000));
 	})
 }
 

@@ -581,7 +581,7 @@ pub mod pallet {
 								.quote_balance
 								.checked_sub(receive_amount)
 								.ok_or(Error::<T>::Arithmetic)?;
-							market_info.collected_quote_fees = market_info
+							market_info.collected_base_fees = market_info
 								.collected_base_fees
 								.checked_add(fee_base)
 								.ok_or(Error::<T>::Arithmetic)?;

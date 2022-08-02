@@ -46,21 +46,29 @@ fn buy() {
 		let market = (BTC, USD);
 		assert_ok!(crate::Pallet::<Test>::buy(origin, market, 10_000));
 
-		// Check the storage changes
-		// Notice that both the liquidity deposit and the payed amount are gone from USD balance
-		assert_eq!(crate::Pallet::<Test>::balance(USD, &ALICE), 890_000);
-		// Notice how 100 BTC balance also went into the liquidity pool
-		assert_eq!(crate::Pallet::<Test>::balance(BTC, &ALICE), 910_000);
-
 		// Check the market_info
 		assert_eq!(
 			crate::LiquidityPool::<Test>::get(market).unwrap(),
 			MarketInfo {
-				base_balance: 90_000,
-				quote_balance: 110_000,
+				base_balance: 90_917,
+				quote_balance: 109_990,
 				collected_base_fees: 0,
-				collected_quote_fees: 1
+				collected_quote_fees: 10,
 			}
 		);
+
+		// Check balance of ALICE
+		assert_eq!(crate::Pallet::<Test>::balance(USD, &ALICE), 890_000);
+		assert_eq!(crate::Pallet::<Test>::balance(BTC, &ALICE), 909_083);
+
+		// Check balance of pool_account
+		let pool_account = crate::Pallet::<Test>::pool_account();
+		assert_eq!(crate::Pallet::<Test>::balance(BTC, &pool_account), 90_917);
+		assert_eq!(crate::Pallet::<Test>::balance(USD, &pool_account), 109_990);
+
+		// Check balance of pool_fee_account
+		let pool_fee_account = crate::Pallet::<Test>::pool_fee_account();
+		assert_eq!(crate::Pallet::<Test>::balance(BTC, &pool_fee_account), 0);
+		assert_eq!(crate::Pallet::<Test>::balance(USD, &pool_fee_account), 10);
 	})
 }
