@@ -193,8 +193,8 @@ pub mod pallet {
 		/// quote_amount: Amount of QUOTE currency to use for bootstrapping liquidity
 		///
 		/// # Weight:
-		/// Requires base weight + 3 reads and 2 writes
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(3, 2))]
+		/// Requires base weight + 3 reads and 6 writes
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(3, 6))]
 		#[transactional] // This Dispatchable is atomic
 		pub fn create_market_pool(
 			origin: OriginFor<T>,
@@ -262,7 +262,7 @@ pub mod pallet {
 		/// market: To which market the liquidity should be added
 		/// base_amount: The amount of BASE asset to deposit
 		/// quote_amount: The amount of QUOTE asset to deposit
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(3, 6))]
 		#[transactional] // This Dispatchable is atomic
 		pub fn deposit_liquidity(
 			origin: OriginFor<T>,
@@ -348,7 +348,7 @@ pub mod pallet {
 		/// market: The liquidity pool to withdraw from
 		/// base_amount: The amount of the BASE asset to withdraw
 		/// quote_amount: The amount of the QUOTE asset to withdraw
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1, 1))]
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(2, 3))]
 		#[transactional] // This Dispatchable is atomic
 		pub fn withdraw_liquidity(
 			origin: OriginFor<T>,
@@ -412,7 +412,7 @@ pub mod pallet {
 		/// origin: The obiquitous origin of a transaction
 		/// market: The market in which the user wants to trade
 		/// quote_amount: The amount of the QUOTE asset the user is willing to spend
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1, 1))]
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(2, 4))]
 		#[transactional] // This Dispatchable is atomic
 		pub fn buy(
 			origin: OriginFor<T>,
@@ -510,7 +510,7 @@ pub mod pallet {
 		/// origin: The obiquitous origin of a transaction
 		/// market: The market in which the user wants to trade
 		/// base_amount: The amount of BASE asset the user wants to sell
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1, 1))]
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(2, 4))]
 		#[transactional] // This Dispatchable is atomic
 		pub fn sell(
 			origin: OriginFor<T>,
