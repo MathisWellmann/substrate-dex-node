@@ -38,6 +38,12 @@ This happens automatically every 10 block, triggered by the offchain_worker.
 The RPC method that is exposed:
 - current_price: Returns the current price of the market, assuming no slippage due to an order fill
 
+The genesis of the chain contains three assets initially, but more could be created with pallet_assets.
+They are (BTC = 0, XMR = 1, USD = 2), so 0, 1, 2 for the AssetId which is required when calling the Dispatchables.
+It would be cool in the future to just use their string alias (ticker symbol).
+Also the accounts ALICE, BOB and CHARLIE have some initial assets assigned to them so they can get trading right away.
+See node/src/chain_spec.rs for more details.
+
 ## Cool to have in the future:
 Given more time, there are a couple of cool things I'd would have liked to include such as:
 - An external set of trading agents that interact and trade with the chain

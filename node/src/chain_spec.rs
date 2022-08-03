@@ -6,7 +6,10 @@ use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_runtime::{
+	traits::{IdentifyAccount, Verify},
+	AccountId32,
+};
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -22,6 +25,19 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 }
 
 type AccountPublic = <Signature as Verify>::Signer;
+type AssetId = u8;
+
+const ALICE: AccountId = AccountId32::new([0; 32]);
+const BOB: AccountId = AccountId32::new([1; 32]);
+const CHARLIE: AccountId = AccountId32::new([2; 32]);
+const DEX_PALLET_ACCOUNT: AccountId = AccountId32::new([
+	109, 111, 100, 108, 100, 101, 120, 112, 97, 108, 108, 101, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0,
+]);
+
+const BTC: AssetId = 0;
+const XMR: AssetId = 1;
+const USD: AssetId = 2;
 
 /// Generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
@@ -93,20 +109,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 				// Sudo account
 				get_account_id_from_seed::<sr25519::Public>("Alice"),
 				// Pre-funded accounts
-				vec![
-					get_account_id_from_seed::<sr25519::Public>("Alice"),
-					get_account_id_from_seed::<sr25519::Public>("Bob"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie"),
-					get_account_id_from_seed::<sr25519::Public>("Dave"),
-					get_account_id_from_seed::<sr25519::Public>("Eve"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-					get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-					get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-				],
+				vec![],
 				true,
 			)
 		},
@@ -129,7 +132,7 @@ fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
+	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
 	GenesisConfig {
@@ -138,8 +141,7 @@ fn testnet_genesis(
 			code: wasm_binary.to_vec(),
 		},
 		balances: BalancesConfig {
-			// Configure endowed accounts with initial balance of 1 << 60.
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+			balances: vec![(ALICE, 1_000_000), (BOB, 1_000_000), (CHARLIE, 1_000_000)],
 		},
 		aura: AuraConfig {
 			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
@@ -155,9 +157,19 @@ fn testnet_genesis(
 
 		// Assign some initial assets at genesis
 		assets: AssetsConfig {
-			assets: vec![(0, root_key.clone(), true, 1), (1, root_key, true, 1)],
+			assets: vec![
+				(BTC, DEX_PALLET_ACCOUNT, true, 1),
+				(XMR, DEX_PALLET_ACCOUNT, true, 1),
+				(USD, DEX_PALLET_ACCOUNT, true, 1),
+			],
 			metadata: vec![],
-			accounts: vec![],
+			accounts: vec![
+				(BTC, ALICE, 1_000_000),
+				(XMR, ALICE, 1_000_000),
+				(USD, ALICE, 1_000_000),
+				(BTC, BOB, 1_000_000),
+				(BTC, CHARLIE, 1_000_000),
+			],
 		},
 	}
 }
